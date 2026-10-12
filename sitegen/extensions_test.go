@@ -67,3 +67,27 @@ func TestDuplicateSearchFieldNamesRejected(t *testing.T) {
 		t.Fatal("duplicate mapped fields accepted")
 	}
 }
+
+func TestPagerOrderAndRepositoryDirectoryPrecedence(t *testing.T) {
+	repo, out, c := fixture(t)
+	put(t, repo, "README.md", "# Home\n")
+	put(t, repo, "docs/a.md", "# A\n[Tools](../tools/)\n")
+	put(t, repo, "docs/z.md", "# Z\n")
+	put(t, repo, "docs/child/README.md", "# Child\n")
+	put(t, repo, "tools/main.go", "package main\n")
+	c.Sections = []Section{{Title: "Docs", Match: []string{"docs/*.md"}, Children: []Section{{Title: "Child", Match: []string{"docs/child/**"}}}}}
+	c.Pager = "group"
+	c.PagerOrder = []string{"docs/child/**", "docs/z.md", "docs/a.md"}
+	c.Repository = "https://github.com/example/project"
+	c.RepositoryLinks = true
+	permalink := "/docs/tools/"
+	c.Defaults = []Defaults{{Match: []string{"docs/z.md"}, Values: Metadata{Permalink: &permalink}}}
+	run(t, repo, out, c)
+	body := read(t, out, "docs/a/index.html")
+	if !strings.Contains(body, `href="https://github.com/example/project/tree/main/tools"`) {
+		t.Fatal("repository directory linked to coincidental page")
+	}
+	if !strings.Contains(body, `href="../tools/index.html"`) {
+		t.Fatal("pager order not applied")
+	}
+}

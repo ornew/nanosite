@@ -27,6 +27,7 @@ type Config struct {
 	SearchIndex      SearchIndexConfig   `json:"searchIndex"`
 	RecordIndexes    []RecordIndexConfig `json:"recordIndexes"`
 	Markdown         MarkdownOptions     `json:"markdown"`
+	PagerOrder       []string            `json:"pagerOrder"`
 	Pager            string              `json:"pager"`
 	SearchHeadings   bool                `json:"searchHeadings"`
 	Template         string              `json:"template"`
@@ -202,7 +203,7 @@ func readConfig(file string) (Config, error) {
 		}
 	}
 	seen := map[string]bool{}
-	patterns := append(append(append([]string{}, c.Include...), c.Exclude...), c.Assets...)
+	patterns := append(append(append(append([]string{}, c.Include...), c.Exclude...), c.Assets...), c.PagerOrder...)
 	var validateSections func([]Section) error
 	validateSections = func(sections []Section) error {
 		for _, section := range sections {

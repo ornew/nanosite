@@ -210,13 +210,27 @@ func (g NavGroup) FirstPage() *Page {
 	}
 	return pages[0]
 }
-func pageNeighbors(groups []NavGroup, current *Page, mode string) (*Page, *Page) {
+func pageNeighbors(groups []NavGroup, current *Page, c Config) (*Page, *Page) {
+	mode := c.Pager
 	if mode == "none" || !boolValue(current.Meta.Nav, true) {
 		return nil, nil
 	}
 	var all []*Page
 	for _, group := range groups {
 		pages := group.allPages()
+		if len(c.PagerOrder) > 0 {
+			sort.SliceStable(pages, func(i, j int) bool {
+				rank := func(p *Page) int {
+					for k, pattern := range c.PagerOrder {
+						if matches([]string{pattern}, p.Source) {
+							return k
+						}
+					}
+					return len(c.PagerOrder)
+				}
+				return rank(pages[i]) < rank(pages[j])
+			})
+		}
 		if mode == "group" {
 			for _, p := range pages {
 				if p == current {

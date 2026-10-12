@@ -90,6 +90,9 @@ neighbors.
 page section; `group` spans a top-level section and its nested children; `site`
 spans all navigation groups; `none` disables the links. A page hidden from
 navigation has no page neighbors.
+Use `pagerOrder` to prioritize neighbor order with source-path glob patterns.
+Patterns apply within each top-level group and the first matching pattern in
+the array has priority; navigation ordering remains unchanged.
 
 ## Configure Markdown and search
 
@@ -111,7 +114,8 @@ Additional `sitegen` settings include `tocDepth`, which sets the deepest TOC and
 search heading level (2–6, default 4), and `directoryLinks`, which uses
 directory URLs for index pages and search results. `repositoryLinks` can turn
 unresolved local source links into repository links when `repository` is
-configured. `searchIndex` customizes the search output path, JavaScript
+configured; repository file/directory links take precedence over an incidental
+published route with the same filename. `searchIndex` customizes the search output path, JavaScript
 variable, entry properties and text/section format. See the
 [Go extension guide](extensions.md) and the full
 [configuration reference](../reference/configuration.md) for these fields.

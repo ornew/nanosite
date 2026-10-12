@@ -96,26 +96,26 @@ func TestNestedNavigationOrderingAndPagerModes(t *testing.T) {
 	if len(local) != 3 || local[1].Title != "Z" || local[2].Title != "A" {
 		t.Fatal("index-link order not applied")
 	}
-	prev, next := pageNeighbors(groups, z, "section")
+	prev, next := pageNeighbors(groups, z, Config{Pager: "section"})
 	if prev == nil || prev.Title != "Local" || next == nil || next.Title != "A" {
 		t.Fatal("section pager order failed")
 	}
 	last := local[2]
-	_, next = pageNeighbors(groups, last, "section")
+	_, next = pageNeighbors(groups, last, Config{Pager: "section"})
 	if next != nil {
 		t.Fatal("section pager escaped child")
 	}
-	_, next = pageNeighbors(groups, last, "group")
+	_, next = pageNeighbors(groups, last, Config{Pager: "group"})
 	if next == nil || next.Title != "Remote" {
 		t.Fatal("group pager missed child boundary")
 	}
-	prev, next = pageNeighbors(groups, z, "none")
+	prev, next = pageNeighbors(groups, z, Config{Pager: "none"})
 	if prev != nil || next != nil {
 		t.Fatal("disabled pager enabled")
 	}
 	no := false
 	z.Meta.Nav = &no
-	prev, next = pageNeighbors(groups, z, "site")
+	prev, next = pageNeighbors(groups, z, Config{Pager: "site"})
 	if prev != nil || next != nil {
 		t.Fatal("hidden page received pager")
 	}

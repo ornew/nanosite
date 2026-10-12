@@ -521,7 +521,7 @@ func buildWith(repo, out string, c Config, check bool, extension Extensions) (*R
 			}
 			v.Canonical = strings.TrimSuffix(c.SiteURL, "/") + publicURL(c, p.Output)
 		}
-		v.Previous, v.Next = pageNeighbors(groups, p, c.Pager)
+		v.Previous, v.Next = pageNeighbors(groups, p, c)
 
 		var b strings.Builder
 		if err := executeLayout(layout, &b, v, extension.View); err != nil {

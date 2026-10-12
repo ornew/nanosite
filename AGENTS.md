@@ -49,6 +49,8 @@ Keep detailed contracts, status and evidence in docs. Use skills when relevant:
 For site or Markdown changes, run `sh site/build.sh -check` and `sh site/build.sh`.
 
 Run `gofmt` on changed Go files, then `go test ./...` and `go vet ./...`.
-Root Go sources implement the CLI and metadata pipeline; `render/` and
-`publish/` expose shared APIs. `layout.html`, `static/` and the Nanosite skill
-are embedded. Keep exported skill/config guidance aligned with behavior.
+`main.go` implements the CLI; `sitegen/` owns standard config, Markdown and the
+shared build pipeline, while `render/` and `publish/` provide supporting APIs.
+`sitegen/layout.html`, `sitegen/static/` and the Nanosite skill are embedded.
+The CLI and `sitegen.BuildWith` share standard config and publication behavior.
+Keep exported skill/config guidance aligned with behavior.

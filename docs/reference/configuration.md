@@ -83,6 +83,7 @@ for collisions.
 | `toc` | boolean | true | Show each page's heading TOC by default; depth is set by `tocDepth` |
 | `tocDepth` | integer | 4 | Maximum heading level included in TOC and search headings; valid range 2–6 |
 | `pager` | string | `section` | Adjacent-page scope: `section`, `group`, `site`, or `none` |
+| `pagerOrder` | string array | empty | Glob patterns that prioritize page neighbors within each top-level group, in listed order |
 | `sections` | section array | empty | Ordered navigation tree; see section fields below |
 | `order` | string array | empty | Source paths prioritized among equal-weight pages, before README ordering |
 | `template` | string | empty | Repository-relative Go HTML template replacing the default full layout |
@@ -118,6 +119,14 @@ metadata, or `Other` if unset. Pager `section` stays within the page's section;
 `group` spans one top-level section and its descendants; `site` spans every
 group. Pages hidden with `nav: false` are skipped, and a hidden current page has
 no neighbors.
+`pagerOrder` patterns match source paths. Matching pages are ordered by the
+first matching pattern's position, independently of navigation order; unmatched
+pages retain their stable order after matched pages.
+
+With `directoryLinks: true`, directory index pages use trailing-slash routes.
+When `repositoryLinks` is enabled, unresolved source links that refer to a
+repository file or directory prefer the configured repository URL over an
+incidental published route with the same filename.
 
 `tocDepth` controls the deepest heading included in a page TOC and search
 heading list. It must be from 2 through 6. `order` lists logical source paths;

@@ -69,6 +69,22 @@ func indexTableClass(c Config, source string) string {
 }
 
 func resolveConfiguredLink(repo string, c Config, p *Page, raw string, bySource, byOutput map[string]*Page, assets map[string]string, redirects map[string]string, generated map[string][]byte) (string, error) {
+	if c.RepositoryLinks && c.Repository != "" {
+		u, e := url.Parse(raw)
+		if e == nil && !u.IsAbs() && u.Host == "" && u.Path != "" && strings.HasSuffix(u.Path, "/") {
+			source := path.Clean(path.Join(path.Dir(p.Source), u.Path))
+			if path.IsAbs(u.Path) {
+				source = path.Clean(strings.TrimPrefix(u.Path, "/"))
+			}
+			if source != ".." && !strings.HasPrefix(source, "../") && bySource[source] == nil && bySource[path.Join(source, "README.md")] == nil && bySource[path.Join(source, "index.md")] == nil {
+				if info, e := os.Stat(filepath.Join(repo, filepath.FromSlash(source))); e == nil && info.IsDir() {
+					u.Path = ""
+					u.RawPath = ""
+					return strings.TrimSuffix(c.Repository, "/") + "/tree/" + encodePath(c.Branch) + "/" + encodePath(source) + u.String(), nil
+				}
+			}
+		}
+	}
 	result, err := resolveLink(p, raw, bySource, byOutput, assets, redirects, generated)
 	if err == nil {
 		if c.DirectoryLinks {
