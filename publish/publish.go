@@ -52,9 +52,16 @@ func validate(o Options) error {
 		if within(source, out) {
 			allowed := false
 			for _, generated := range o.AllowedOutput {
-				destination, err := canonicalPath(filepath.Join(repo, generated))
+				if filepath.IsAbs(generated) || !within(repo, filepath.Join(repo, generated)) {
+					return fmt.Errorf("generated output exception must be repository-relative: %s", generated)
+				}
+				lexical := filepath.Join(repo, generated)
+				destination, err := canonicalPath(lexical)
 				if err != nil {
 					return err
+				}
+				if destination != lexical {
+					return fmt.Errorf("generated output exception must not traverse symlinks: %s", generated)
 				}
 				// Exceptions must be strict descendants of the protected source.
 				if destination != source && within(source, destination) && within(destination, out) {

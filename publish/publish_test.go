@@ -70,3 +70,22 @@ func TestProtectedDescendantsAndExplicitGeneratedOutput(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestGeneratedOutputExceptionCannotAliasSources(t *testing.T) {
+	repo := t.TempDir()
+	source := filepath.Join(repo, "site/templates")
+	if err := os.MkdirAll(source, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(source, ".owned"), nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(source, filepath.Join(repo, "site/dist")); err != nil {
+		t.Fatal(err)
+	}
+	o := Options{Repo: repo, Out: source, Marker: ".owned", Protected: []string{"site"}, AllowedOutput: []string{"site/dist"}}
+	called := false
+	if err := Run(o, func(string) error { called = true; return nil }); err == nil || called {
+		t.Fatal("generated exception aliased source")
+	}
+}
