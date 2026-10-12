@@ -1,0 +1,15 @@
+[build]
+  command = "sh site/build.sh"
+  publish = "site/dist"
+
+[build.environment]
+  GO_VERSION = "1.27.1"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Configure custom domains and actual legacy redirects when adopting the template.

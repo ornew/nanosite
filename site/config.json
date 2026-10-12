@@ -1,0 +1,106 @@
+{
+  "title": "Nanosite",
+  "description": "Small, configurable documentation sites from repository Markdown.",
+  "lang": "en",
+  "repository": "https://github.com/ornew/nanosite",
+  "branch": "main",
+  "siteURL": "",
+  "basePath": "/",
+  "include": [
+    "README.md",
+    "docs/**/*.md",
+    "spec/**/*.md"
+  ],
+  "exclude": [
+    "**/TEMPLATE.md",
+    "**/000-template.md",
+    "**/_*/**",
+    "**/_*.md"
+  ],
+  "assets": [
+    "docs/**/*.png",
+    "docs/**/*.jpg",
+    "docs/**/*.svg",
+    "docs/**/*.webp",
+    "docs/**/*.pdf",
+    "spec/**/*.png",
+    "spec/**/*.svg"
+  ],
+  "drafts": false,
+  "prettyURLs": true,
+  "search": true,
+  "toc": true,
+  "sections": [
+    {
+      "title": "Overview",
+      "match": [
+        "README.md"
+      ],
+      "collapsed": false
+    },
+    {
+      "title": "Tutorials",
+      "match": [
+        "docs/tutorial/**"
+      ],
+      "collapsed": false
+    },
+    {
+      "title": "Guides",
+      "match": [
+        "docs/guide/**"
+      ],
+      "collapsed": false
+    },
+    {
+      "title": "Cookbook",
+      "match": [
+        "docs/cookbook/**"
+      ],
+      "collapsed": false
+    },
+    {
+      "title": "Specification",
+      "match": [
+        "spec/**"
+      ],
+      "collapsed": false
+    },
+    {
+      "title": "Design Records",
+      "match": [
+        "docs/design/**"
+      ],
+      "collapsed": true
+    },
+    {
+      "title": "Optimizations",
+      "match": [
+        "docs/optimizations/**"
+      ],
+      "collapsed": true
+    },
+    {
+      "title": "Development",
+      "match": [
+        "docs/dev/**"
+      ],
+      "collapsed": true
+    }
+  ],
+  "defaults": [
+    {
+      "match": [
+        "README.md"
+      ],
+      "values": {
+        "layout": "home"
+      }
+    }
+  ],
+  "redirects": {},
+  "template": "",
+  "staticDir": "",
+  "styles": [],
+  "scripts": []
+}

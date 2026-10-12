@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="{{.Config.Lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Page.Title}}{{if ne .Page.Title .Config.Title}} · {{.Config.Title}}{{end}}</title>
+<meta name="description" content="{{.Page.Description}}">
+<meta name="color-scheme" content="light dark">
+{{if .Canonical}}<link rel="canonical" href="{{.Canonical}}">{{end}}
+{{if .NoIndex}}<meta name="robots" content="noindex">{{end}}
+<script src="{{.Theme}}"></script>
+<link rel="stylesheet" href="{{.CSS}}">
+{{range .Styles}}<link rel="stylesheet" href="{{.}}">{{end}}
+</head>
+<body class="layout-{{.Page.Layout}}">
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+<a class="brand" href="{{.Home}}">{{.Config.Title}}</a>
+<nav class="topnav" aria-label="Main">{{range .Groups}}{{if not .Collapsed}}{{if ne (index .Pages 0).Output "index.html"}}<a href="{{call $.URL (index .Pages 0).Output}}"{{if .Active}} aria-current="true"{{end}}>{{.Title}}</a>{{end}}{{end}}{{end}}</nav>
+<div class="tools">
+{{if .Search}}<label class="search-label" for="search">Search docs</label><input id="search" type="search" placeholder="Search docs…" autocomplete="off" aria-controls="search-results">{{end}}
+<button id="theme" type="button">Theme: system</button>
+{{if .Config.Repository}}<a href="{{.Config.Repository}}">Source</a>{{end}}
+</div>
+</header>
+{{if .Search}}<div id="search-results" role="region" aria-label="Search results" aria-live="polite" hidden></div>{{end}}
+<div class="layout">
+<aside class="sidebar">
+<details id="navigation" open><summary>Documentation</summary>
+<nav aria-label="Documentation">
+{{range .Groups}}
+{{if .Collapsed}}<details class="nav-group"{{if .Active}} open{{end}}><summary>{{.Title}}</summary>{{else}}<section class="nav-group"><h2>{{.Title}}</h2>{{end}}
+<ul>{{range .Pages}}<li><a href="{{call $.URL .Output}}"{{if eq .Output $.Page.Output}} aria-current="page"{{end}}>{{.NavTitle}}</a></li>{{end}}</ul>
+{{if .Collapsed}}</details>{{else}}</section>{{end}}
+{{end}}
+</nav></details>
+</aside>
+<main id="main">
+<article>{{.Body}}</article>
+<footer class="page-footer">
+{{if .Source}}<p><a href="{{.Source}}">View page source</a></p>{{end}}
+<nav class="pager" aria-label="Adjacent pages">
+{{if .Previous}}<a href="{{call .URL .Previous.Output}}">← {{.Previous.NavTitle}}</a>{{end}}
+{{if .Next}}<a href="{{call .URL .Next.Output}}">{{.Next.NavTitle}} →</a>{{end}}
+</nav>
+</footer>
+</main>
+{{if .TOC}}<nav class="toc" aria-label="On this page"><h2>On this page</h2><ul>{{range .TOC}}<li class="level-{{.Level}}"><a href="#{{.ID}}">{{.Title}}</a></li>{{end}}</ul></nav>{{end}}
+</div>
+<footer class="site-footer">{{.Config.Title}}{{if .Config.Description}} · {{.Config.Description}}{{end}}</footer>
+{{if .Search}}<script src="{{.Search}}"></script>{{end}}
+<script src="{{.Script}}" defer></script>
+{{range .Scripts}}<script src="{{.}}" defer></script>{{end}}
+</body>
+</html>
