@@ -1,7 +1,7 @@
 # Development
 
-Nanosite is a Go documentation generator. Its command and reusable `render` and
-`publish` packages live in one Go module at the repository root. The `site/`
+Nanosite is a Go documentation generator. Its command and reusable `sitegen`,
+`render`, and `publish` packages live in one Go module at the repository root. The `site/`
 directory configures the documentation site for this source checkout; it is not
 a separate Go module.
 
@@ -9,11 +9,12 @@ a separate Go module.
 
 | Path | Purpose |
 |:--|:--|
-| `main.go`, `config.go`, `build.go` | Standard CLI and configuration pipeline |
-| `render/` | Markdown, routing, navigation and record-index APIs |
+| `main.go`, `skills.go` | CLI, version reporting and embedded skill export |
+| `sitegen/` | Standard configuration, Markdown pipeline, build API and Go extensions |
+| `render/` | Routing, navigation and record-index APIs |
 | `publish/` | Safe output staging and replacement |
-| `layout.html`, `static/` | Embedded default site layout and browser assets |
-| `.agents/skills/nanosite/` | Skill source embedded in the command |
+| `sitegen/layout.html`, `sitegen/static/` | Embedded default site layout and browser assets |
+| `.agents/skills/nanosite/` | Skill source embedded in the command by `skills.go` |
 | `site/config.json`, `site/build.sh` | Configuration and wrapper for this checkout's own site |
 | `docs/` | Tutorials, guides, recipes, reference, design and development docs |
 
@@ -39,7 +40,8 @@ Write user instructions in tutorials, guides, recipes and reference pages.
 Keep development setup here and site-maintenance details in [site maintenance](site.md).
 The Nanosite skill source is `.agents/skills/nanosite/`; the build embeds that
 directory into the CLI. Keep its configuration reference aligned with the
-standard CLI and distinguish it from extension-driver behavior.
+standard CLI and `sitegen.BuildWith`, which share the same config and publication
+pipeline.
 
 For Markdown, config, or theme changes, validate and rebuild the local site:
 

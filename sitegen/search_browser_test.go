@@ -1,4 +1,4 @@
-package main
+package sitegen
 
 import (
 	"os/exec"
@@ -10,7 +10,7 @@ func TestSearchBrowserHeadingURLs(t *testing.T) {
 	if err != nil {
 		t.Skip("Node.js is not installed")
 	}
-	output, err := exec.Command(node, "testdata/search_url_test.cjs", "static/site.js").CombinedOutput()
+	output, err := exec.Command(node, "../testdata/search_url_test.cjs", "static/site.js").CombinedOutput()
 	if err != nil {
 		t.Fatalf("browser search URL test: %v\n%s", err, output)
 	}

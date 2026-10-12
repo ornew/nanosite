@@ -101,10 +101,20 @@ navigation has no page neighbors.
 - `headingIDs` is `unicode` (default), `github`, or `goldmark`.
 - `alignAttributes` controls table alignment attributes and defaults to true.
 
-The table of contents is on by default and includes H2 through H4; global `toc`
-or per-page `toc` can turn it off. Search is on by default. `searchHeadings: true`
+The table of contents is on by default and includes H2 through H4 at the default
+`tocDepth` of 4; `tocDepth` accepts values from 2 to 6. Global `toc` or
+per-page `toc` can turn it off. Search is on by default. `searchHeadings: true`
 adds heading fragments as search results; it defaults to false. Per-page
 `search: false` omits the page from search without unpublishing it.
+
+Additional `sitegen` settings include `tocDepth`, which sets the deepest TOC and
+search heading level (2–6, default 4), and `directoryLinks`, which uses
+directory URLs for index pages and search results. `repositoryLinks` can turn
+unresolved local source links into repository links when `repository` is
+configured. `searchIndex` customizes the search output path, JavaScript
+variable, entry properties and text/section format. See the
+[Go extension guide](extensions.md) and the full
+[configuration reference](../reference/configuration.md) for these fields.
 
 ## Add CSS, scripts, or a template
 

@@ -182,3 +182,6 @@ func canonicalPath(p string) (string, error) {
 	}
 	return filepath.EvalSymlinks(a)
 }
+
+// Validate checks output ownership and source overlap without changing files.
+func Validate(o Options) error { return validate(o) }

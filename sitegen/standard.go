@@ -1,4 +1,4 @@
-package main
+package sitegen
 
 import (
 	"fmt"
@@ -29,10 +29,16 @@ func recordPages(repo string, c Config, pages []*Page, selected map[string]bool)
 		if selected[index.Source] && previous == nil {
 			continue
 		}
-		if _, err := localInput(repo, index.Directory); err != nil {
+		directory, err := localInput(repo, index.Directory)
+		if err != nil {
 			return nil, err
 		}
-		rule := render.RecordIndex{Directory: index.Directory, Heading: index.Title, Introduction: index.Introduction, Columns: index.Columns, Required: index.Required, Template: index.Template, TemplateText: index.TemplateText, Select: func(source string) bool { return published[source] != nil }}
+		if _, err := os.Stat(directory); os.IsNotExist(err) && index.Optional {
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+		rule := render.RecordIndex{GeneratedNotice: index.Notice, IncludeTemplate: index.IncludeTemplate, Directory: index.Directory, Heading: index.Title, Introduction: index.Introduction, Columns: index.Columns, Required: index.Required, Template: index.Template, TemplateText: index.TemplateText, Select: func(source string) bool { return published[source] != nil }}
 		records, hasTemplate, err := render.ReadRecords(repo, rule)
 		if err != nil {
 			return nil, err

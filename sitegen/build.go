@@ -1,4 +1,4 @@
-package main
+package sitegen
 
 import (
 	"embed"
@@ -94,6 +94,10 @@ func validateOutput(repo, out string) error {
 }
 
 func build(repo, out string, c Config, check bool) (*Result, error) {
+	return buildWith(repo, out, c, check, Extensions{})
+}
+
+func buildWith(repo, out string, c Config, check bool, extension Extensions) (*Result, error) {
 	repo, err := canonicalPath(repo)
 	if err != nil {
 		return nil, err
@@ -109,7 +113,7 @@ func build(repo, out string, c Config, check bool) (*Result, error) {
 	if originalOut != out {
 		return nil, fmt.Errorf("output path must not traverse symlinks")
 	}
-	if err := validateOutput(repo, out); err != nil {
+	if err := validateOutputWith(repo, out, extension); err != nil {
 		return nil, err
 	}
 	md := markdownWith(c.Markdown)
@@ -234,9 +238,30 @@ func build(repo, out string, c Config, check bool) (*Result, error) {
 			return nil, fmt.Errorf("output contains a source page")
 		}
 	}
+	context := &Context{Repo: repo, Config: c, Markdown: md, Pages: pages, Assets: map[string][]byte{}}
+	if extension.Prepare != nil {
+		if err := extension.Prepare(context); err != nil {
+			return nil, err
+		}
+	}
+	pages = context.Pages
+	order := map[string]int{}
+	for i, source := range c.Order {
+		order[source] = i + 1
+	}
 	sort.Slice(pages, func(i, j int) bool {
 		if weight(pages[i].Meta) != weight(pages[j].Meta) {
 			return weight(pages[i].Meta) < weight(pages[j].Meta)
+		}
+		ri, rj := order[pages[i].Source], order[pages[j].Source]
+		if ri != rj {
+			if ri == 0 {
+				return false
+			}
+			if rj == 0 {
+				return true
+			}
+			return ri < rj
 		}
 		ai, aj := path.Base(pages[i].Source) == "README.md", path.Base(pages[j].Source) == "README.md"
 		if ai != aj {
@@ -280,11 +305,19 @@ func build(repo, out string, c Config, check bool) (*Result, error) {
 			return nil, err
 		}
 	}
+	for name, data := range context.Assets {
+		if err := reserve(name, data); err != nil {
+			return nil, err
+		}
+	}
 	static, err := fs.ReadDir(embedded, "static")
 	if err != nil {
 		return nil, err
 	}
 	for _, f := range static {
+		if !boolValue(c.BundledAssets, true) {
+			continue
+		}
 		data, e := embedded.ReadFile("static/" + f.Name())
 		if e != nil {
 			return nil, e
@@ -325,6 +358,31 @@ func build(repo, out string, c Config, check bool) (*Result, error) {
 		}
 		href := encodePath(relative(from, to))
 		data := []byte(fmt.Sprintf("<!doctype html><html lang=\"%s\"><head><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"0;url=%s\"><title>Page moved</title></head><body><a href=\"%s\">Continue to the new page</a></body></html>", html.EscapeString(c.Lang), html.EscapeString(href), html.EscapeString(href)))
+		if c.RedirectTemplate != "" {
+			file, e := localInput(repo, c.RedirectTemplate)
+			if e != nil {
+				return nil, e
+			}
+			if inside(out, file) {
+				return nil, fmt.Errorf("redirect template overlaps output")
+			}
+			source, e := os.ReadFile(file)
+			if e != nil {
+				return nil, e
+			}
+			layout, e := template.New("redirect").Parse(string(source))
+			if e != nil {
+				return nil, e
+			}
+			var buffer strings.Builder
+			if e := layout.Execute(&buffer, struct {
+				Config     Config
+				Href, Lang string
+			}{c, href, c.Lang}); e != nil {
+				return nil, e
+			}
+			data = []byte(buffer.String())
+		}
 		if err := reserve(from, data); err != nil {
 			return nil, err
 		}
@@ -337,13 +395,13 @@ func build(repo, out string, c Config, check bool) (*Result, error) {
 			}
 			switch l := n.(type) {
 			case *ast.Link:
-				dest, e := resolveLink(p, string(l.Destination), bySource, byOutput, assets, redirects, generated)
+				dest, e := resolveConfiguredLink(repo, c, p, string(l.Destination), bySource, byOutput, assets, redirects, generated)
 				if e != nil {
 					return ast.WalkStop, e
 				}
 				l.Destination = []byte(dest)
 			case *ast.Image:
-				dest, e := resolveLink(p, string(l.Destination), bySource, byOutput, assets, redirects, generated)
+				dest, e := resolveConfiguredLink(repo, c, p, string(l.Destination), bySource, byOutput, assets, redirects, generated)
 				if e != nil {
 					return ast.WalkStop, e
 				}
@@ -355,7 +413,11 @@ func build(repo, out string, c Config, check bool) (*Result, error) {
 			return nil, err
 		}
 	}
-	layout, err := template.New("layout.html").Funcs(template.FuncMap{"subnav": subnav}).ParseFS(embedded, "layout.html")
+	functions := template.FuncMap{"subnav": subnav}
+	for key, value := range extension.TemplateFuncs {
+		functions[key] = value
+	}
+	layout, err := template.New("layout.html").Funcs(functions).ParseFS(embedded, "layout.html")
 	if err != nil {
 		return nil, err
 	}
@@ -371,9 +433,25 @@ func build(repo, out string, c Config, check bool) (*Result, error) {
 		if e != nil {
 			return nil, e
 		}
-		layout, err = template.New("layout.html").Funcs(template.FuncMap{"subnav": subnav}).Parse(string(data))
+		layout, err = template.New("layout.html").Funcs(functions).Parse(string(data))
 		if err != nil {
 			return nil, err
+		}
+	}
+	for _, source := range c.Templates {
+		file, e := localInput(repo, source)
+		if e != nil {
+			return nil, e
+		}
+		if inside(out, file) {
+			return nil, fmt.Errorf("template overlaps output")
+		}
+		data, e := os.ReadFile(file)
+		if e != nil {
+			return nil, e
+		}
+		if _, e = layout.New(path.Base(source)).Parse(string(data)); e != nil {
+			return nil, e
 		}
 	}
 	for _, name := range append(append([]string{}, c.Styles...), c.Scripts...) {
@@ -388,13 +466,27 @@ func build(repo, out string, c Config, check bool) (*Result, error) {
 	if byOutput[home] == nil {
 		home = pages[0].Output
 	}
-	var search []map[string]string
+	var search []map[string]any
 	for _, p := range pages {
 		body, e := renderMarkdown(md, p)
+		if p.RenderedHTML != nil {
+			body = string(p.RenderedHTML)
+		}
 		if e != nil {
 			return nil, e
 		}
-		body = render.PostProcess(body, c.Markdown.Alerts, c.Markdown.HeadingLinks)
+		if p.RenderedHTML == nil {
+			body = render.PostProcess(body, c.Markdown.Alerts, c.Markdown.HeadingLinks)
+		}
+		if extension.Decorate != nil {
+			body, e = extension.Decorate(context, p, body)
+			if e != nil {
+				return nil, e
+			}
+		}
+		if class := indexTableClass(c, p.Source); class != "" {
+			body = strings.Replace(body, "<table>", "<table class=\""+html.EscapeString(class)+"\">", 1)
+		}
 		groups, e := orderedNavigation(repo, pages, p, c)
 		if e != nil {
 			return nil, e
@@ -411,15 +503,15 @@ func build(repo, out string, c Config, check bool) (*Result, error) {
 		v.URL = func(to string) string { return encodePath(relative(p.Output, to)) }
 		if boolValue(p.Meta.TOC, c.TOC) {
 			for _, h := range p.Headings {
-				if h.Level >= 2 && h.Level <= 4 {
+				if h.Level >= 2 && h.Level <= tocDepth(c) {
 					v.TOC = append(v.TOC, h)
 				}
 			}
 		}
 		if c.Search {
-			v.Search = encodePath(relative(p.Output, "assets/search-index.js"))
+			v.Search = encodePath(relative(p.Output, searchPath(c)))
 		}
-		if c.Repository != "" {
+		if c.Repository != "" && !p.NoSource {
 			v.Source = strings.TrimSuffix(c.Repository, "/") + "/blob/" + encodePath(c.Branch) + "/" + encodePath(p.Source)
 		}
 		if c.SiteURL != "" {
@@ -432,32 +524,25 @@ func build(repo, out string, c Config, check bool) (*Result, error) {
 		v.Previous, v.Next = pageNeighbors(groups, p, c.Pager)
 
 		var b strings.Builder
-		if err := layout.ExecuteTemplate(&b, "layout.html", v); err != nil {
+		if err := executeLayout(layout, &b, v, extension.View); err != nil {
 			return nil, err
 		}
 		generated[p.Output] = []byte(b.String())
 		if c.Search && boolValue(p.Meta.Search, true) {
-			search = append(search, map[string]string{"title": p.Title, "url": encodePath(p.Output), "text": plainText(p)})
-			if c.SearchHeadings {
-				for _, h := range p.Headings {
-					if h.Level == 1 {
-						continue
-					}
-					search = append(search, map[string]string{"title": p.Title + " › " + h.Title, "url": encodePath(p.Output) + (&url.URL{Fragment: h.ID}).String(), "text": h.Title})
-				}
-			}
+			search = append(search, searchEntries(p, body, groups, c)...)
 		}
+
 	}
 	if c.Search {
 		data, e := json.Marshal(search)
 		if e != nil {
 			return nil, e
 		}
-		if err := reserve("assets/search-index.js", append(append([]byte("globalThis.NANOSITE_SEARCH = "), data...), ';', '\n')); err != nil {
+		if err := reserve(searchPath(c), searchBytes(c, data)); err != nil {
 			return nil, err
 		}
 	}
-	if len(redirects) > 0 {
+	if len(redirects) > 0 && boolValue(c.RedirectRules, true) {
 		var b strings.Builder
 		keys := sortedKeys(redirects)
 		for _, from := range keys {
@@ -484,14 +569,29 @@ func build(repo, out string, c Config, check bool) (*Result, error) {
 			return nil, err
 		}
 	}
-	if err := reserve(marker, []byte(markerContent)); err != nil {
+	if err := reserve(outputOptions(repo, out, extension).Marker, outputOptions(repo, out, extension).MarkerContent); err != nil {
 		return nil, err
 	}
 	result := &Result{pages, out}
 	if check {
+		if extension.Validate != nil {
+			stage, err := os.MkdirTemp("", "nanosite-check-")
+			if err != nil {
+				return nil, err
+			}
+			defer os.RemoveAll(stage)
+			for _, name := range sortedKeys(generated) {
+				if err := publish.WriteFile(filepath.Join(stage, filepath.FromSlash(name)), generated[name]); err != nil {
+					return nil, err
+				}
+			}
+			if err := extension.Validate(stage); err != nil {
+				return nil, err
+			}
+		}
 		return result, nil
 	}
-	if err := writeOutput(repo, out, generated); err != nil {
+	if err := writeOutputWith(repo, out, generated, extension); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -664,4 +764,9 @@ func localInput(repo, name string) (string, error) {
 
 func subnav(groups []NavGroup, p *Page, url func(string) string) View {
 	return View{Groups: groups, Page: p, URL: url}
+}
+
+// Build runs the standard publication pipeline, optionally validating without writes.
+func Build(repo, out string, c Config, check bool) (*Result, error) {
+	return build(repo, out, c, check)
 }

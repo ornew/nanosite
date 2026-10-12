@@ -1,8 +1,9 @@
-package main
+package sitegen
 
 import (
 	"bytes"
 	"fmt"
+	"html"
 	"io"
 	"path"
 	"strings"
@@ -20,6 +21,10 @@ type Heading struct {
 	Level     int
 }
 type Page struct {
+	RenderedHTML                                                  []byte
+	Data                                                          any
+	NoSource                                                      bool
+	SearchText                                                    *string
 	Source, Output, Title, Description, NavTitle, Section, Layout string
 	Meta                                                          Metadata
 	Body                                                          []byte
@@ -130,6 +135,11 @@ func parsePage(source string, data []byte, c Config, md goldmark.Markdown) (*Pag
 		return nil, fmt.Errorf("%s: layout must be home or doc", source)
 	}
 	p.Section = textValue(m.Section, "")
+	if c.Markdown.RawHTML {
+		for _, match := range generatedID.FindAllSubmatch(p.Body, -1) {
+			p.Anchors[html.UnescapeString(string(match[1]))] = true
+		}
+	}
 	if p.Section == "" {
 		p.Section = matchSection(source, c.Sections)
 	}

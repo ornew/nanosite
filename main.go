@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/ornew/nanosite/sitegen"
 )
 
 func main() {
@@ -39,7 +41,7 @@ func main() {
 	if flag.NArg() != 0 {
 		log.Fatal("unexpected positional arguments")
 	}
-	c, err := readConfig(*config)
+	c, err := sitegen.ReadConfig(*config)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -55,7 +57,7 @@ func main() {
 			c.BasePath += "/"
 		}
 	}
-	result, err := build(*repo, *out, c, *check)
+	result, err := sitegen.Build(*repo, *out, c, *check)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -58,5 +58,5 @@ subpath hosting. Local builds do not verify DNS, remote URLs or deployment.
 For content and theme changes, inspect navigation and search on desktop and
 mobile, check light/dark/system colors, and confirm local links and fragments.
 If browser assets change, run the optional Node.js browser-focused checks along
-with the Go test suite. The root `layout.html` and `static/` directories are the
+with the Go test suite. `sitegen/layout.html` and `sitegen/static/` are the
 source for the embedded default layout and client assets.

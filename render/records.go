@@ -22,6 +22,7 @@ type Record struct {
 	Fields     map[string]string
 }
 type RecordIndex struct {
+	IncludeTemplate                  bool
 	Directory, Heading, Introduction string
 	Columns                          []Column
 	Required                         []string
@@ -68,7 +69,7 @@ func ReadRecords(repo string, c RecordIndex) ([]Record, bool, error) {
 			hasTemplate = true
 		}
 		match := recordName.FindStringSubmatch(name)
-		if match == nil || match[1] == "000" {
+		if match == nil || match[1] == "000" && !c.IncludeTemplate {
 			continue
 		}
 		if previous, exists := ids[match[1]]; exists {

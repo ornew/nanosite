@@ -6,6 +6,7 @@ neighboring checkout. Repository-specific policy lives in a JSON configuration.
 
 [Tutorial](docs/tutorial/first-site.md) ·
 [Configuration guide](docs/guide/configuration.md) ·
+[Go extension guide](docs/guide/extensions.md) ·
 [Cookbook](docs/cookbook/README.md) ·
 [Configuration reference](docs/reference/configuration.md)
 
@@ -58,6 +59,7 @@ Start from `site/config.json`. Unknown keys fail the build to catch typos.
 | `sections` | Nested navigation groups with globally unique titles, `match`, `children`, optional `index` and `first` |
 | `recordIndexes` | Virtual Markdown indexes for numbered design or optimization records |
 | `markdown` | Raw HTML, alerts, heading links/IDs and alignment behavior |
+| `tocDepth`, `searchIndex`, `directoryLinks`, `repositoryLinks` | Go generator settings for TOC/search output and source links |
 | `defaults` | Ordered `match` globs and `values` metadata; later matches override earlier values |
 | `redirects` | Old route to published route mapping, e.g. `/old.html` to `/guide/` |
 | `template` | Optional repository-relative Go HTML template, replacing the embedded layout |
@@ -187,7 +189,7 @@ toc: true
 
 Precedence is engine defaults, matching config defaults in order, then page
 front matter. Explicit false and zero override earlier values. Unknown keys,
-incorrect types, duplicate keys and unclosed front matter fail builds.
+incorrect types and unclosed front matter fail builds; duplicate YAML keys fail.
 Excluded files stay excluded even if their metadata says `publish: true`.
 
 Navigation sorts by weight, then places a section's configured index source and
@@ -297,19 +299,14 @@ both and also updates the dependency of Go extension drivers.
 
 ## Go extension drivers
 
-Projects with existing themes or generated content can import the public
-`render` and `publish` packages while keeping a small Go site driver:
-
-- `render`: configurable GFM rendering, heading links/alerts, source discovery,
-  routing and ordering, record tables, navigation/paging and search serialization.
-- `publish`: link validation, output ownership, staged generation and replacement
-  that preserves the previous site when generation fails.
-
-Themes, API/CLI references, Playground compilation and site-specific schemas stay
-in the driver. Standard CLI JSON/front matter settings apply only when the driver
-explicitly implements them; `render.ReadSourcePolicy` supports source exclusions.
-Pin the imported module and exported skill to the same commit, and use the
-project's driver tests and site guide to verify its publication contract.
+Projects that need generated pages or custom rendering can use the `sitegen`
+package. `sitegen.BuildWith` runs the standard publication pipeline with
+`Prepare`, `Decorate`, `View`, and template-function hooks while retaining shared
+configuration, routing, link validation, navigation, search, and safe output
+replacement. The [Go extension guide](docs/guide/extensions.md) includes a
+complete example. The lower-level `render` and `publish` packages remain
+available for projects that need a custom pipeline. Pin the module and exported
+skill to the same revision.
 
 ## Verification
 

@@ -1,4 +1,4 @@
-package main
+package sitegen
 
 import (
 	"encoding/json"
@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/ornew/nanosite/render"
@@ -15,31 +16,40 @@ import (
 // All repository-specific choices live in Config. The generator can be moved
 // without importing the adopted project's implementation or tooling.
 type Config struct {
-	RecordIndexes  []RecordIndexConfig `json:"recordIndexes"`
-	Markdown       MarkdownOptions     `json:"markdown"`
-	Pager          string              `json:"pager"`
-	SearchHeadings bool                `json:"searchHeadings"`
-	Template       string              `json:"template"`
-	StaticDir      string              `json:"staticDir"`
-	Styles         []string            `json:"styles"`
-	Scripts        []string            `json:"scripts"`
-	Title          string              `json:"title"`
-	Description    string              `json:"description"`
-	Lang           string              `json:"lang"`
-	Repository     string              `json:"repository"`
-	Branch         string              `json:"branch"`
-	SiteURL        string              `json:"siteURL"`
-	BasePath       string              `json:"basePath"`
-	Include        []string            `json:"include"`
-	Exclude        []string            `json:"exclude"`
-	Assets         []string            `json:"assets"`
-	Drafts         bool                `json:"drafts"`
-	PrettyURLs     bool                `json:"prettyURLs"`
-	Search         bool                `json:"search"`
-	TOC            bool                `json:"toc"`
-	Sections       []Section           `json:"sections"`
-	Defaults       []Defaults          `json:"defaults"`
-	Redirects      map[string]string   `json:"redirects"`
+	RedirectTemplate string              `json:"redirectTemplate"`
+	RedirectRules    *bool               `json:"redirectRules"`
+	BundledAssets    *bool               `json:"bundledAssets"`
+	Templates        []string            `json:"templates"`
+	DirectoryLinks   bool                `json:"directoryLinks"`
+	RepositoryLinks  bool                `json:"repositoryLinks"`
+	TOCDepth         int                 `json:"tocDepth"`
+	Order            []string            `json:"order"`
+	SearchIndex      SearchIndexConfig   `json:"searchIndex"`
+	RecordIndexes    []RecordIndexConfig `json:"recordIndexes"`
+	Markdown         MarkdownOptions     `json:"markdown"`
+	Pager            string              `json:"pager"`
+	SearchHeadings   bool                `json:"searchHeadings"`
+	Template         string              `json:"template"`
+	StaticDir        string              `json:"staticDir"`
+	Styles           []string            `json:"styles"`
+	Scripts          []string            `json:"scripts"`
+	Title            string              `json:"title"`
+	Description      string              `json:"description"`
+	Lang             string              `json:"lang"`
+	Repository       string              `json:"repository"`
+	Branch           string              `json:"branch"`
+	SiteURL          string              `json:"siteURL"`
+	BasePath         string              `json:"basePath"`
+	Include          []string            `json:"include"`
+	Exclude          []string            `json:"exclude"`
+	Assets           []string            `json:"assets"`
+	Drafts           bool                `json:"drafts"`
+	PrettyURLs       bool                `json:"prettyURLs"`
+	Search           bool                `json:"search"`
+	TOC              bool                `json:"toc"`
+	Sections         []Section           `json:"sections"`
+	Defaults         []Defaults          `json:"defaults"`
+	Redirects        map[string]string   `json:"redirects"`
 }
 
 type Section struct {
@@ -60,14 +70,28 @@ type MarkdownOptions struct {
 }
 
 type RecordIndexConfig struct {
-	Source       string          `json:"source"`
-	Directory    string          `json:"directory"`
-	Title        string          `json:"title"`
-	Introduction string          `json:"introduction"`
-	Columns      []render.Column `json:"columns"`
-	Required     []string        `json:"required"`
-	Template     string          `json:"template"`
-	TemplateText string          `json:"templateText"`
+	Notice          string          `json:"notice"`
+	Optional        bool            `json:"optional"`
+	IncludeTemplate bool            `json:"includeTemplate"`
+	TableClass      string          `json:"tableClass"`
+	Source          string          `json:"source"`
+	Directory       string          `json:"directory"`
+	Title           string          `json:"title"`
+	Introduction    string          `json:"introduction"`
+	Columns         []render.Column `json:"columns"`
+	Required        []string        `json:"required"`
+	Template        string          `json:"template"`
+	TemplateText    string          `json:"templateText"`
+}
+
+type SearchIndexConfig struct {
+	Path         string            `json:"path"`
+	Variable     string            `json:"variable"`
+	Fields       map[string]string `json:"fields"`
+	Text         string            `json:"text"`
+	HeadingTitle string            `json:"headingTitle"`
+	HeadingText  string            `json:"headingText"`
+	Section      string            `json:"section"`
 }
 
 type Defaults struct {
@@ -96,7 +120,7 @@ func defaultConfig() Config {
 	return Config{Title: "Documentation", Lang: "en", Branch: "main", BasePath: "/",
 		Include:    []string{"README.md", "docs/**/*.md", "spec/**/*.md"},
 		Exclude:    []string{"**/TEMPLATE.md", "**/000-template.md"},
-		PrettyURLs: true, Search: true, TOC: true, Pager: "section"}
+		PrettyURLs: true, Search: true, TOC: true, Pager: "section", TOCDepth: 4}
 }
 
 func readConfig(file string) (Config, error) {
@@ -133,6 +157,49 @@ func readConfig(file string) (Config, error) {
 	}
 	if c.Markdown.HeadingIDs != "" && c.Markdown.HeadingIDs != "unicode" && c.Markdown.HeadingIDs != "github" && c.Markdown.HeadingIDs != "goldmark" {
 		return c, fmt.Errorf("markdown.headingIDs must be unicode, github or goldmark")
+	}
+	if c.TOCDepth < 2 || c.TOCDepth > 6 {
+		return c, fmt.Errorf("tocDepth must be between 2 and 6")
+	}
+	for _, source := range append(append([]string{}, c.Order...), c.Templates...) {
+		if err := relativeSource(source); err != nil {
+			return c, err
+		}
+	}
+	if c.RedirectTemplate != "" {
+		if err := relativeSource(c.RedirectTemplate); err != nil {
+			return c, err
+		}
+	}
+	if c.SearchIndex.Path != "" {
+		if err := relativeSource(c.SearchIndex.Path); err != nil {
+			return c, err
+		}
+	}
+	if c.SearchIndex.Variable != "" && !searchVariable.MatchString(c.SearchIndex.Variable) {
+		return c, fmt.Errorf("searchIndex.variable must be a dotted JavaScript identifier")
+	}
+	fieldNames := map[string]bool{}
+	for key, value := range c.SearchIndex.Fields {
+		if fieldNames[value] {
+			return c, fmt.Errorf("duplicate searchIndex field name: %s", value)
+		}
+		fieldNames[value] = true
+		if !searchFields[key] || value == "" {
+			return c, fmt.Errorf("invalid searchIndex field mapping %s", key)
+		}
+	}
+	for _, setting := range []struct {
+		value   string
+		options []string
+	}{{c.SearchIndex.Text, []string{"", "markdown", "html"}}, {c.SearchIndex.HeadingTitle, []string{"", "context", "heading"}}, {c.SearchIndex.HeadingText, []string{"", "heading", "page"}}, {c.SearchIndex.Section, []string{"", "leaf", "group"}}} {
+		valid := false
+		for _, option := range setting.options {
+			valid = valid || setting.value == option
+		}
+		if !valid {
+			return c, fmt.Errorf("invalid searchIndex option %s", setting.value)
+		}
 	}
 	seen := map[string]bool{}
 	patterns := append(append(append([]string{}, c.Include...), c.Exclude...), c.Assets...)
@@ -266,3 +333,12 @@ func relativeSource(source string) error {
 	}
 	return nil
 }
+
+// ReadConfig loads and validates standard configuration with engine defaults.
+func ReadConfig(file string) (Config, error) { return readConfig(file) }
+
+// DefaultConfig returns the standard command defaults for Go extensions.
+func DefaultConfig() Config { return defaultConfig() }
+
+var searchVariable = regexp.MustCompile(`^[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*$`)
+var searchFields = map[string]bool{"title": true, "url": true, "text": true, "section": true, "headings": true}

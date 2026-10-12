@@ -80,12 +80,27 @@ for collisions.
 |:--|:--|:--|:--|
 | `search` | boolean | true | Build and load the local full-text search index |
 | `searchHeadings` | boolean | false | Add heading-fragment entries to search results when search is enabled |
-| `toc` | boolean | true | Show each page's H2–H4 table of contents by default |
+| `toc` | boolean | true | Show each page's heading TOC by default; depth is set by `tocDepth` |
+| `tocDepth` | integer | 4 | Maximum heading level included in TOC and search headings; valid range 2–6 |
 | `pager` | string | `section` | Adjacent-page scope: `section`, `group`, `site`, or `none` |
 | `sections` | section array | empty | Ordered navigation tree; see section fields below |
+| `order` | string array | empty | Source paths prioritized among equal-weight pages, before README ordering |
 | `template` | string | empty | Repository-relative Go HTML template replacing the default full layout |
+| `templates` | string array | empty | Repository-relative Go template files parsed as named templates in the layout |
 | `styles` | string array | empty | Existing output-relative stylesheets, loaded after built-in CSS |
 | `scripts` | string array | empty | Existing output-relative scripts, loaded after built-in JavaScript |
+| `directoryLinks` | boolean | false | Use directory URLs for index pages and search result links |
+| `repositoryLinks` | boolean | false | When a local link is not a published page or asset, link to its file or directory in the configured repository |
+| `bundledAssets` | boolean | true | Copy built-in CSS, JavaScript and theme assets |
+| `redirectRules` | boolean | true | Emit the Netlify `_redirects` file for page redirects and aliases |
+| `redirectTemplate` | string | empty | Repository-relative Go template for redirect HTML; receives `.Config`, `.Href`, and `.Lang` |
+| `searchIndex` | object | see below | Select search output path, JavaScript variable and entry fields |
+
+Setting `redirectRules: false` suppresses only the `_redirects` file; individual
+redirect HTML pages are still generated. Disabling `bundledAssets` also removes
+the assets referenced by the default layout, so provide a compatible custom
+layout and its assets when turning it off. A file in `templates` is parsed as a
+named Go template using its basename and can be called from the layout.
 
 Each `sections` object supports:
 
@@ -103,6 +118,33 @@ metadata, or `Other` if unset. Pager `section` stays within the page's section;
 `group` spans one top-level section and its descendants; `site` spans every
 group. Pages hidden with `nav: false` are skipped, and a hidden current page has
 no neighbors.
+
+`tocDepth` controls the deepest heading included in a page TOC and search
+heading list. It must be from 2 through 6. `order` lists logical source paths;
+listed paths sort before other pages of the same weight, with earlier entries
+first.
+
+### Search index schema
+
+`searchIndex` can customize the generated search file and its entry format:
+
+| Field | JSON type | Default | Meaning |
+|:--|:--|:--|:--|
+| `path` | string | `assets/search-index.js` | Output-relative path for search data |
+| `variable` | string | `globalThis.NANOSITE_SEARCH` | Dotted JavaScript identifier assigned the data; when omitted and `path` ends in `.json`, output raw JSON |
+| `fields` | object of strings | `title`, `url`, `text` | Map supported entry fields to output property names |
+| `text` | string | `markdown` | `markdown` source text or `html` rendered text |
+| `headingTitle` | string | `context` | `context` uses “page › heading”; `heading` uses only the heading |
+| `headingText` | string | `heading` | `heading` uses heading text; `page` uses page text |
+| `section` | string | `leaf` | `leaf` uses the page section; `group` uses its top-level navigation group |
+
+`fields` may map `title`, `url`, `text`, `section`, and `headings` to nonempty
+output property names; duplicate output property names are rejected. The
+default three properties are `title`, `url`, and `text`. The `headings` value
+is a list of heading ID/title pairs. Search heading
+entries are included only when `searchHeadings` is true. `headingTitle` accepts
+empty/default or `context` and `heading`; `headingText` accepts empty/default,
+`heading`, or `page`; `section` accepts empty/default, `leaf`, or `group`.
 
 ## Markdown processing
 
@@ -166,10 +208,15 @@ navigation or search does not unpublish it.
 | `required` | string array | Metadata fields that each listed record must provide |
 | `template` | basename | Optional record template filename in `directory`; the file contents are not included |
 | `templateText` | string | Markdown footer; appended unconditionally without `template`, or when the named template is published |
+| `notice` | string | Generated HTML comment prepended to the index; default empty |
+| `optional` | boolean | Skip the index when its record directory does not exist; default false |
+| `includeTemplate` | boolean | Include `000-...md` files in the record list; default false |
+| `tableClass` | string | CSS class added to the generated record table; default empty |
 
 Records are files named `NNN-name.md`, with numbers sorted numerically; `000`
-files are not listed. Each needs a level-one heading. Metadata is read from
-single-line list items such as `- **Status**: Accepted`; required fields must be
+files are skipped unless `includeTemplate` is true. Configured exclude patterns
+still apply. Each needs a level-one heading. Metadata is read from single-line
+list items such as `- **Status**: Accepted`; required fields must be
 nonempty. Duplicate record numbers or duplicate configured fields in one
 record fail. `Title` is a special column field linking to each record.
 
