@@ -50,3 +50,23 @@ func TestCheckLinksWithQueryAndRootRoutes(t *testing.T) {
 		t.Fatal(problems)
 	}
 }
+
+func TestProtectedDescendantsAndExplicitGeneratedOutput(t *testing.T) {
+	repo := t.TempDir()
+	for _, dir := range []string{"docs/guides", "site/templates"} {
+		if err := os.MkdirAll(filepath.Join(repo, dir), 0755); err != nil {
+			t.Fatal(err)
+		}
+		o := Options{Repo: repo, Out: filepath.Join(repo, dir), Marker: ".owned", Protected: []string{"docs", "site"}, AllowedOutput: []string{"site/dist"}}
+		if err := os.WriteFile(filepath.Join(o.Out, o.Marker), nil, 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := Run(o, func(string) error { return nil }); err == nil {
+			t.Fatalf("protected source %s accepted", dir)
+		}
+	}
+	o := Options{Repo: repo, Out: filepath.Join(repo, "site/dist"), Marker: ".owned", Protected: []string{"site"}, AllowedOutput: []string{"site/dist"}}
+	if err := Run(o, func(string) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+}

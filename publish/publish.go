@@ -14,7 +14,8 @@ type Options struct {
 	Repo, Out     string
 	Marker        string
 	MarkerContent []byte
-	Protected     []string // repository-relative files/directories the output must not contain
+	Protected     []string // repository-relative sources; output must not overlap
+	AllowedOutput []string // explicit generated subtrees within protected directories
 }
 
 func within(parent, child string) bool {
@@ -47,6 +48,22 @@ func validate(o Options) error {
 		}
 		if within(out, source) {
 			return fmt.Errorf("output directory contains source: %s", out)
+		}
+		if within(source, out) {
+			allowed := false
+			for _, generated := range o.AllowedOutput {
+				destination, err := canonicalPath(filepath.Join(repo, generated))
+				if err != nil {
+					return err
+				}
+				// Exceptions must be strict descendants of the protected source.
+				if destination != source && within(source, destination) && within(destination, out) {
+					allowed = true
+				}
+			}
+			if !allowed {
+				return fmt.Errorf("output directory overlaps source: %s", out)
+			}
 		}
 	}
 	if info, e := os.Lstat(out); e == nil && info.Mode()&os.ModeSymlink != 0 {
