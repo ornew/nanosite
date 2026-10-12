@@ -8,9 +8,9 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/ornew/nanosite/render"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
-	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/text"
 	"gopkg.in/yaml.v3"
 )
@@ -142,12 +142,8 @@ func parsePage(source string, data []byte, c Config, md goldmark.Markdown) (*Pag
 	return p, nil
 }
 
-func markdown() goldmark.Markdown {
-	return goldmark.New(goldmark.WithExtensions(
-		extension.NewTable(extension.WithTableCellAlignMethod(extension.TableCellAlignAttribute)),
-		extension.Strikethrough, extension.Linkify, extension.TaskList,
-	))
-}
+func markdown() goldmark.Markdown { return render.NewMarkdown(render.Options{AlignAttributes: true}) }
+
 func renderMarkdown(md goldmark.Markdown, p *Page) (string, error) {
 	var b bytes.Buffer
 	err := md.Renderer().Render(&b, p.Body, p.Document)

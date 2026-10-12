@@ -188,11 +188,42 @@ repository root. `site/config.json` configures Nanosite's own documentation site
 `site/build.sh` builds it using the root command. The compiled binary embeds its
 fallback assets and runs independently of this checkout.
 
-Nanosite began as the site tooling of `ornew/template-basic`. This repository
-also uses that OSS documentation template. It has not yet been released: build
-from the checkout for now. Once a tag or commit has been published, adopting
-projects can install that pinned revision and keep only their site configuration
-and build wrapper.
+Nanosite began as the site tooling of `ornew/template-basic` and uses that OSS
+documentation template itself. Adopting projects can pin a published commit
+without waiting for a tagged release.
+
+## Pinned builds and skill synchronization
+
+Use the same revision for generation and the accompanying agent skill:
+
+```sh
+go run github.com/ornew/nanosite@FULL_COMMIT_SHA -repo . -config site/config.json -out site/dist
+go run github.com/ornew/nanosite@FULL_COMMIT_SHA skill -out .agents/skills/nanosite
+go run github.com/ornew/nanosite@FULL_COMMIT_SHA version
+```
+
+The command embeds `SKILL.md` and its configuration reference. `skill` installs
+only that version's files; it refuses unrelated files and symlink destinations.
+The default destination is `.agents/skills/nanosite`. The installed
+`.nanosite-version` records the module version. Commit installed skill files with
+the generator pin. The template's `hack/update-nanosite-skill.sh` synchronizes
+both and also updates the dependency of Go extension drivers.
+
+## Go extension drivers
+
+Projects with existing themes or generated content can import the public
+`render` and `publish` packages while keeping a small Go site driver:
+
+- `render`: configurable GFM rendering, heading links/alerts, source discovery,
+  routing and ordering, record tables, navigation/paging and search serialization.
+- `publish`: link validation, output ownership, staged generation and replacement
+  that preserves the previous site when generation fails.
+
+Themes, API/CLI references, Playground compilation and site-specific schemas stay
+in the driver. Standard CLI JSON/front matter settings apply only when the driver
+explicitly implements them; `render.ReadSourcePolicy` supports source exclusions.
+Pin the imported module and exported skill to the same commit, and use the
+project's driver tests and site guide to verify its publication contract.
 
 ## Verification
 

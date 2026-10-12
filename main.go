@@ -12,6 +12,22 @@ import (
 )
 
 func main() {
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "skill":
+			if err := skillCommand(os.Args[2:]); err != nil {
+				log.Fatal(err)
+			}
+			return
+		case "version":
+			if len(os.Args) != 2 {
+				log.Fatal("version takes no arguments")
+			}
+			fmt.Println(version())
+			return
+		}
+	}
+
 	repo := flag.String("repo", ".", "input repository (read only)")
 	config := flag.String("config", "site/config.json", "JSON configuration file")
 	out := flag.String("out", "site/dist", "generated output directory")

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/ornew/nanosite/render"
 	"io"
 	"os"
 	"path"
@@ -169,27 +170,8 @@ func validatePattern(p string) error {
 }
 
 // ** matches zero or more whole directories. Other segments use path.Match.
-func glob(pattern, name string) bool {
-	p, n := strings.Split(pattern, "/"), strings.Split(name, "/")
-	var match func(int, int) bool
-	match = func(i, j int) bool {
-		if i == len(p) {
-			return j == len(n)
-		}
-		if p[i] == "**" {
-			if match(i+1, j) {
-				return true
-			}
-			return j < len(n) && match(i, j+1)
-		}
-		if j == len(n) {
-			return false
-		}
-		ok, _ := path.Match(p[i], n[j])
-		return ok && match(i+1, j+1)
-	}
-	return match(0, 0)
-}
+func glob(pattern, name string) bool { return render.Glob(pattern, name) }
+
 func matches(patterns []string, name string) bool {
 	for _, p := range patterns {
 		if glob(p, name) {

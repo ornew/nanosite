@@ -14,6 +14,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/ornew/nanosite/publish"
+	"github.com/ornew/nanosite/render"
 	"github.com/yuin/goldmark/ast"
 )
 
@@ -417,17 +419,12 @@ func build(repo, out string, c Config, check bool) (*Result, error) {
 			v.Canonical = strings.TrimSuffix(c.SiteURL, "/") + publicURL(c, p.Output)
 		}
 		for _, g := range groups {
-			for i, q := range g.Pages {
-				if q == p {
-					if i > 0 {
-						v.Previous = g.Pages[i-1]
-					}
-					if i+1 < len(g.Pages) {
-						v.Next = g.Pages[i+1]
-					}
-				}
+			previous, next := render.Adjacent(g.Pages, p, nil)
+			if previous != nil || next != nil {
+				v.Previous, v.Next = previous, next
 			}
 		}
+
 		var b strings.Builder
 		if err := layout.ExecuteTemplate(&b, "layout.html", v); err != nil {
 			return nil, err
@@ -621,50 +618,14 @@ func sortedKeys[V any](m map[string]V) []string {
 }
 
 func writeOutput(repo, out string, files map[string][]byte) error {
-	parent := filepath.Dir(out)
-	if err := os.MkdirAll(parent, 0755); err != nil {
-		return err
-	}
-	stage, err := os.MkdirTemp(parent, ".site-build-")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(stage)
-	for _, name := range sortedKeys(files) {
-		file := filepath.Join(stage, filepath.FromSlash(name))
-		if err := os.MkdirAll(filepath.Dir(file), 0755); err != nil {
-			return err
-		}
-		if err := os.WriteFile(file, files[name], 0644); err != nil {
-			return err
-		}
-	}
-	// Recheck output ownership just before replacement. Failed validation or rendering
-	// has not touched the previous build. A failed rename restores the previous tree.
-	if err := validateOutput(repo, out); err != nil {
-		return err
-	}
-	backup := ""
-	if _, err := os.Stat(out); err == nil {
-		backup = stage + "-old"
-		if err := os.Rename(out, backup); err != nil {
-			return err
-		}
-	} else if !os.IsNotExist(err) {
-		return err
-	}
-	if err := os.Rename(stage, out); err != nil {
-		if backup != "" {
-			if restore := os.Rename(backup, out); restore != nil {
-				return fmt.Errorf("replace: %v; restore previous output from %s: %w", err, backup, restore)
+	return publish.Run(publish.Options{Repo: repo, Out: out, Marker: marker, MarkerContent: []byte(markerContent)}, func(stage string) error {
+		for _, name := range sortedKeys(files) {
+			if err := publish.WriteFile(filepath.Join(stage, filepath.FromSlash(name)), files[name]); err != nil {
+				return err
 			}
 		}
-		return err
-	}
-	if backup != "" {
-		return os.RemoveAll(backup)
-	}
-	return nil
+		return nil
+	})
 }
 
 // localInput ensures configured templates and public directories are read only
