@@ -1,8 +1,8 @@
 # Guides
 
-Understand individual features, their behavior and limits.
+Configure how Nanosite turns Markdown and assets into a site.
 
 ## Contents
 
-Add links to completed documents here. Copy `TEMPLATE.md` to start a new
-document. Authoring templates are excluded from the website by default.
+- [Configuration](configuration.md): publication, front matter, routing, assets,
+  navigation, Markdown options and page presentation.

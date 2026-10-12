@@ -16,7 +16,7 @@
 <a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
 <a class="brand" href="{{.Home}}">{{.Config.Title}}</a>
-<nav class="topnav" aria-label="Main">{{range .Groups}}{{if not .Collapsed}}{{if ne (index .Pages 0).Output "index.html"}}<a href="{{call $.URL (index .Pages 0).Output}}"{{if .Active}} aria-current="true"{{end}}>{{.Title}}</a>{{end}}{{end}}{{end}}</nav>
+<nav class="topnav" aria-label="Main">{{range .Groups}}{{if not .Collapsed}}{{if ne .FirstPage.Output "index.html"}}<a href="{{call $.URL .FirstPage.Output}}"{{if .Active}} aria-current="true"{{end}}>{{.Title}}</a>{{end}}{{end}}{{end}}</nav>
 <div class="tools">
 {{if .Search}}<label class="search-label" for="search">Search docs</label><input id="search" type="search" placeholder="Search docs…" autocomplete="off" aria-controls="search-results">{{end}}
 <button id="theme" type="button">Theme: system</button>
@@ -28,11 +28,7 @@
 <aside class="sidebar">
 <details id="navigation" open><summary>Documentation</summary>
 <nav aria-label="Documentation">
-{{range .Groups}}
-{{if .Collapsed}}<details class="nav-group"{{if .Active}} open{{end}}><summary>{{.Title}}</summary>{{else}}<section class="nav-group"><h2>{{.Title}}</h2>{{end}}
-<ul>{{range .Pages}}<li><a href="{{call $.URL .Output}}"{{if eq .Output $.Page.Output}} aria-current="page"{{end}}>{{.NavTitle}}</a></li>{{end}}</ul>
-{{if .Collapsed}}</details>{{else}}</section>{{end}}
-{{end}}
+{{template "navgroups" .}}
 </nav></details>
 </aside>
 <main id="main">
@@ -53,3 +49,10 @@
 {{range .Scripts}}<script src="{{.}}" defer></script>{{end}}
 </body>
 </html>
+
+{{define "navgroups"}}{{range .Groups}}
+{{if .Collapsed}}<details class="nav-group"{{if .Active}} open{{end}}><summary>{{.Title}}</summary>{{else}}<section class="nav-group"><h2>{{.Title}}</h2>{{end}}
+<ul>{{range .Pages}}<li><a href="{{call $.URL .Output}}"{{if eq .Output $.Page.Output}} aria-current="page"{{end}}>{{.NavTitle}}</a></li>{{end}}</ul>
+{{if .Children}}{{template "navgroups" (subnav .Children $.Page $.URL)}}{{end}}
+{{if .Collapsed}}</details>{{else}}</section>{{end}}
+{{end}}{{end}}

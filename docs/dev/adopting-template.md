@@ -1,38 +1,31 @@
-# Adopting the Template
+# Maintain the Nanosite repository template
 
-This scaffold supplies documentation and site tooling; choose implementation
-language, packaging, license and release policies for each project.
+Nanosite's documentation conventions and site tooling originated in an OSS
+project template. Maintain the template as a reviewed set of reusable files;
+keep Nanosite's own generator implementation and site behavior authoritative.
 
-## Project identity
+## Preserve project ownership
 
-Replace `PROJECT_NAME`, `ONE_SENTENCE_TAGLINE`, installation commands and example
-prompts in the root README. Keep useful structure and remove unused sections.
-Add only badges and claims whose targets or evidence exist. Choose and add a
-project-specific license file before describing its license.
+The root Go module owns the `nanosite` command and its `render` and `publish`
+packages. The repository's `site/config.json` and `site/build.sh` configure and
+build this checkout's site from the root module. Preserve this source ownership
+when preparing files for reuse; consumer instructions should pin a specific
+Nanosite revision rather than depend on a neighboring checkout.
 
-Update `site/config.json` with the same name and description. Set `repository`
-and `branch` for source links, and set `siteURL` only after choosing the site's
-actual origin. Documentation sections are configurable; add or remove sections
-according to the project's readers.
+Keep Nanosite-specific contracts and links in its README, specification, guides,
+and development docs. Reusable template files should avoid inventing a consumer's
+license, package name, support policy, installation command, or product claims.
+Use clearly marked authoring prompts only where the adopter must supply a real
+project-specific value.
 
-## Working agreement
+## Review template changes
 
-Keep `AGENTS.md` small. Fill in actual source locations, toolchain and validation
-commands. Retain task-specific guidance in `.agents/skills/` only when useful.
-The template does not inherit another project's issue numbers, push permissions,
-model selection, temporary workflow pauses or worktree locations.
+When adapting files from a template or another repository, apply and review the
+intended patch against the target file. Preserve target-specific configuration,
+design, and documentation. Do not import unrelated Git history or overwrite
+project contracts and working rules as part of copying a template.
 
-## First documents
-
-Replace the specification introduction with the project's contracts and support
-status. Copy authoring templates to finished pages, remove their prompts and add
-links to section introductions. Design records preserve decisions; optimization
-records preserve scoped measurement evidence. Published documents must not rely
-on development conversations or temporary backlog labels.
-
-## Verification and deployment
-
-Run the actual project checks once implementation exists. Build the documentation
-site and inspect it before configuring deployment. Keep generated output out of
-Git. Treat source links, publication, Netlify setup and release automation as
-separate configuration choices.
+Validate the source checkout using the checks in [development](README.md) and
+rebuild its site using [site maintenance](site.md). Keep generated output out
+of source control. Follow the [commit-message conventions](commit-message.md). Review publication
+and deployment separately from local builds.

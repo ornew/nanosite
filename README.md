@@ -4,6 +4,11 @@ Nanosite is an independent Go command that renders repository Markdown into a st
 It has no dependency on the project's implementation, its root module, or a
 neighboring checkout. Repository-specific policy lives in a JSON configuration.
 
+[Tutorial](docs/tutorial/first-site.md) ·
+[Configuration guide](docs/guide/configuration.md) ·
+[Cookbook](docs/cookbook/README.md) ·
+[Configuration reference](docs/reference/configuration.md)
+
 ## Build and preview
 
 Requires Go 1.27.1 or later. From the Nanosite repository root:
@@ -48,7 +53,11 @@ Start from `site/config.json`. Unknown keys fail the build to catch typos.
 | `prettyURLs` | `topic.md` becomes `topic/index.html` when true, `topic.html` when false |
 | `drafts` | Include draft pages; default false |
 | `search`, `toc` | Global search and per-page TOC defaults |
-| `sections` | Ordered navigation groups: `title`, `match` globs, optional `collapsed` |
+| `searchHeadings` | Add heading fragments to search results; default false |
+| `pager` | Previous/next scope: `section` (default), `group`, `site`, or `none` |
+| `sections` | Nested navigation groups with globally unique titles, `match`, `children`, optional `index` and `first` |
+| `recordIndexes` | Virtual Markdown indexes for numbered design or optimization records |
+| `markdown` | Raw HTML, alerts, heading links/IDs and alignment behavior |
 | `defaults` | Ordered `match` globs and `values` metadata; later matches override earlier values |
 | `redirects` | Old route to published route mapping, e.g. `/old.html` to `/guide/` |
 | `template` | Optional repository-relative Go HTML template, replacing the embedded layout |
@@ -64,6 +73,73 @@ Default inputs are `README.md`, `docs/**/*.md`, and `spec/**/*.md`. Authoring
 `TEMPLATE.md` and `000-template.md` files, underscore-prefixed Markdown files,
 and underscore-prefixed directories are excluded by the template configuration.
 The engine does not hardcode any documentation section or project name.
+
+For example, record indexes publish a generated list beside design records, and
+nested sections organize guides under a common navigation group:
+
+```json
+{
+  "recordIndexes": [
+    {
+      "source": "docs/design/README.md",
+      "directory": "docs/design",
+      "title": "Design Records",
+      "introduction": "Accepted and proposed design decisions.",
+      "columns": [
+        { "title": "Record", "field": "Title" },
+        { "title": "Status", "field": "Status" },
+        { "title": "Date", "field": "Date" }
+      ],
+      "required": ["Status", "Date"],
+      "templateText": "See the record files for the full rationale."
+    }
+  ],
+  "sections": [
+    {
+      "title": "Documentation",
+      "match": ["README.md"],
+      "children": [
+        {
+          "title": "Guides",
+          "match": ["docs/guide/**"],
+          "index": "docs/guide/README.md",
+          "first": ["docs/guide/getting-started.md"]
+        },
+        { "title": "Design", "match": ["docs/design/**"] }
+      ]
+    }
+  ],
+  "pager": "group",
+  "markdown": {
+    "rawHTML": false,
+    "alerts": true,
+    "headingLinks": true,
+    "headingIDs": "unicode",
+    "alignAttributes": true
+  },
+  "searchHeadings": true
+}
+```
+
+Each `recordIndexes` entry creates a virtual Markdown source at `source`; its
+front matter and matching defaults are handled like those of a file, and its
+route, links and fragments resolve normally. The source file is never created
+or overwritten. Records are selected using the same publication rules as pages:
+`include`/`exclude`, `publish`, and draft settings apply. Numbered records are
+sorted by their NNN prefix; `000` templates are excluded from the list. The
+`directory` defaults to the directory containing `source`. `title` and
+`columns` are required; `required` lists metadata fields required on each record.
+Set `template` to a template basename in that directory. When that named
+template is selected for publication, `templateText` is appended as a Markdown
+footer. Without `template`, `templateText` is always appended. The template
+file's contents are not included.
+
+Navigation sections can contain nested `children`; titles must be globally
+unique across all levels. Child matches are checked before their parent match.
+An `index` points to the section's README source and controls its link ordering;
+`first` lists sources to prioritize among pages tied by weight. Pager scope is
+`section` for a child section, `group` for a top-level section and all its
+children, `site` for all pages, or `none` to disable adjacent-page links.
 
 `README.md` and `index.md` map to their directory's `index.html`. Both in the
 same directory cause a collision error. Overlapping routes, file/directory
@@ -114,11 +190,20 @@ front matter. Explicit false and zero override earlier values. Unknown keys,
 incorrect types, duplicate keys and unclosed front matter fail builds.
 Excluded files stay excluded even if their metadata says `publish: true`.
 
-Navigation sorts by weight, then places README introductions first among pages
-of equal weight, then sorts by source path. Previous/next links stay within the
-same section and skip pages hidden from navigation. Heading IDs preserve Unicode,
-remove punctuation, replace whitespace with hyphens and suffix duplicates with
-`-1`, `-2`, and so on. The TOC includes H2 through H4.
+Navigation sorts by weight, then places a section's configured index source and
+first-listed sources before other equal-weight pages, then places README
+introductions before remaining pages and sorts by source path. Previous/next
+links use the configured pager scope and skip pages hidden from navigation.
+Heading IDs default to `unicode`, preserving Unicode, removing punctuation,
+replacing whitespace with hyphens and suffixing duplicates with `-1`, `-2`, and
+so on. `github` uses GitHub-compatible slug rules; `goldmark` uses Goldmark's
+automatic IDs. The TOC includes H2 through H4.
+
+The `markdown` object controls extensions: `rawHTML` is disabled by default,
+`alerts` and `headingLinks` are disabled by default, and `alignAttributes`
+defaults to true. `headingIDs` accepts `unicode` (default), `github`, or
+`goldmark`. Set `searchHeadings` to include heading fragments in search results;
+it defaults to false.
 
 Hiding a page from navigation or search does not make it private: its HTML is
 still published, and it appears in the sitemap when configured. Use
@@ -154,11 +239,12 @@ They are omitted from navigation, search and sitemap. Redirect chains, external
 redirects and missing destinations are rejected. Redirect pages send users to
 the target route; they do not preserve arbitrary incoming query/fragment state.
 
-Raw HTML in Markdown is disabled. Fenced code, tables, task lists, strikethrough
-and normal Markdown are supported through Goldmark GFM. Language-specific syntax
-highlighting, math, Mermaid rendering, API reference generation, automatic design
-indexes and WebAssembly builds are extension points rather than bundled project
-features. Write custom pages with a template or explicitly copied static HTML.
+Raw HTML in Markdown is disabled by default. Fenced code, tables, task lists,
+strikethrough and normal Markdown are supported through Goldmark GFM. Language-
+specific syntax highlighting, math, Mermaid rendering, API reference generation
+and WebAssembly builds are extension points rather than bundled project
+features. Record indexes can generate design and optimization record lists.
+Write custom pages with a template or explicitly copied static HTML.
 Custom HTML/template links and static HTML heading fragments are not validated
 by the Markdown link checker; verify those custom assets separately.
 

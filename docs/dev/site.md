@@ -1,75 +1,62 @@
-# Documentation Site
+# Maintain the Nanosite site
 
-Nanosite is the independent Go documentation generator module at the repository root. It reads
-repository Markdown and creates static HTML without changing source documents.
-Its configuration contains the project name, publication rules and navigation;
-the generator itself does not depend on the project's implementation language.
+The Nanosite repository builds its own documentation from the root Go module.
+From the repository root, `sh site/build.sh` changes into `site/` and runs the
+root checkout with `-repo .. -config config.json -out dist`. It does not download
+another Nanosite revision and does not support `NANOSITE_SOURCE` or
+`NANOSITE_BIN` overrides.
 
-## Build and preview
+## Build and inspect
 
-Use Go 1.27.1 or later, from the repository root:
+Use Go 1.27.1 or later. From the repository root:
 
 ```sh
-sh site/build.sh
 sh site/build.sh -check
+sh site/build.sh
 sh site/build.sh -serve localhost:8080
 ```
 
-The output is `site/dist/`, ignored by Git. Preview builds once; restart after
-editing source. The first build needs dependencies downloaded or cached.
+The output is `site/dist/`, which is ignored by Git. `-check` validates without
+writing; a successful build replaces generated pages and assets after checking
+the inputs. A failed build preserves the prior output. The output directory must
+be new, empty, or marked as owned by Nanosite. Preview builds once; rebuild and
+restart it after editing content or configuration.
 
-## Publication controls
+The `site/config.json` file controls the repository's published Markdown,
+navigation, search, theme, and source links. The [configuration guide](../guide/configuration.md)
+explains reader-facing settings; the [reference](../reference/configuration.md)
+lists all standard fields and flags. Do not hand-edit `site/dist/`.
 
-Edit `site/config.json` to choose Markdown `include` and `exclude` patterns.
-Templates and underscore-prefixed drafts are excluded by the starter config.
-YAML front matter can set `title`, `description`, `navTitle`, `weight`, `section`,
-`layout`, `permalink`, `aliases`, `publish`, `draft`, `nav`, `search`, and `toc`.
-Matching `defaults` rules supply metadata before page-specific overrides.
+## Source checkout versus a pinned consumer build
 
-```yaml
----
-navTitle: Streaming
-weight: 20
-draft: true
----
-```
-
-Drafts are omitted by default; `sh site/build.sh -drafts` includes them in a local
-preview. `publish: false` omits a page in every mode. Hiding navigation/search
-alone does not omit the page from the output.
-
-The default site has configurable section navigation, section-local paging,
-H2–H4 tables of contents, local full-text search, light/dark/system colors,
-responsive navigation and print styles. Page links and heading fragments are
-checked before output is replaced. Failed builds retain the previous output;
-successful builds remove stale pages. Do not hand-edit generated files.
-
-## Assets and customization
-
-Use `assets` globs for repository images and downloads. `staticDir` copies a
-public directory directly into the output. Optional `styles`, `scripts` and a
-custom Go HTML `template` extend the presentation without changing the engine.
-See the root `README.md` for the full configuration, precedence, supported syntax,
-link rules, output protections, extension limits and extraction instructions.
-
-## Netlify
-
-`netlify.toml` builds with Go and publishes `site/dist/`. Connect the actual
-repository and configure the production branch and custom domain in Netlify.
-Set `siteURL` to the actual HTTP(S) origin to emit canonical URLs and a sitemap;
-set `basePath` separately for a subpath deployment. Leave `siteURL` blank until
-it is known. Add real legacy redirects rather than copying another project's
-hostnames. A local build verifies generated output, not deployment or DNS.
-
-## Verification
+The wrapper in this repository builds the current source checkout, which is
+useful when changing the generator or its site. A consuming project should pin a
+full Nanosite commit instead of relying on a neighboring checkout. From that
+project's root, a fixed-revision build can use:
 
 ```sh
-go test ./...
-go vet ./...
-sh site/build.sh -check
-sh site/build.sh
+go run github.com/ornew/nanosite@FULL_COMMIT_SHA -repo . -config site/config.json -out site/dist -check
+go run github.com/ornew/nanosite@FULL_COMMIT_SHA -repo . -config site/config.json -out site/dist
 ```
 
-Inspect desktop and mobile navigation, search, color modes and any custom
-browser assets after presentation changes. External URL availability and
-custom raw HTML assets are outside the Markdown link checker.
+Replace `FULL_COMMIT_SHA` with the selected revision. Keep the generator and
+installed skill at that same revision. Run
+`go run github.com/ornew/nanosite@FULL_COMMIT_SHA skill -out .agents/skills/nanosite`
+to export the skill from the pinned command. Some consuming-project scaffolds
+provide a helper to synchronize the generator pin and exported skill; follow
+that project's wrapper and configuration rather than adding a second
+source-checkout override.
+
+## Publication and customization
+
+The repository config excludes authoring templates and underscore-prefixed
+drafts. Front matter can set page title, navigation label, section, weight,
+permalink, aliases, publication, draft, search and TOC behavior. `siteURL` is
+left blank until the canonical origin is known; `basePath` separately configures
+subpath hosting. Local builds do not verify DNS, remote URLs or deployment.
+
+For content and theme changes, inspect navigation and search on desktop and
+mobile, check light/dark/system colors, and confirm local links and fragments.
+If browser assets change, run the optional Node.js browser-focused checks along
+with the Go test suite. The root `layout.html` and `static/` directories are the
+source for the embedded default layout and client assets.

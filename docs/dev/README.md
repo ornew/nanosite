@@ -1,37 +1,52 @@
 # Development
 
-Repository maintenance and contribution instructions belong here. User-facing
-installation and feature usage belong in tutorials and guides.
-
-Start with [adopting the template](adopting-template.md) when creating a project.
+Nanosite is a Go documentation generator. Its command and reusable `render` and
+`publish` packages live in one Go module at the repository root. The `site/`
+directory configures the documentation site for this source checkout; it is not
+a separate Go module.
 
 ## Repository map
 
 | Path | Purpose |
 |:--|:--|
-| `spec/` | Normative public contracts |
-| `docs/design/` | Numbered design decisions |
-| `docs/optimizations/` | Measured optimization records |
-| `site/` | Configuration and wrapper for Nanosite's own documentation |
-| `.agents/skills/` | Task-specific agent guidance |
+| `main.go`, `config.go`, `build.go` | Standard CLI and configuration pipeline |
+| `render/` | Markdown, routing, navigation and record-index APIs |
+| `publish/` | Safe output staging and replacement |
+| `layout.html`, `static/` | Embedded default site layout and browser assets |
+| `.agents/skills/nanosite/` | Skill source embedded in the command |
+| `site/config.json`, `site/build.sh` | Configuration and wrapper for this checkout's own site |
+| `docs/` | Tutorials, guides, recipes, reference, design and development docs |
 
-Add implementation, tests, examples and generated artifacts after choosing the
-project language. Document their source of truth and generation commands.
+## Setup and checks
 
-## Setup and verification
+Use Go 1.27.1 or later. Format changed Go files with `gofmt`; the first build
+may download dependencies. From the repository root:
 
-Use Go 1.27.1 or later. Run `gofmt` on changed Go files, then `go test ./...`
-and `go vet ./...` from the root. Build the command with `go build .`. The root
-Go module contains the generator; `layout.html` and `static/` are embedded assets.
+```sh
+go test ./...
+go vet ./...
+go build .
+```
 
-For the documentation site, see [site maintenance](site.md).
+The tests cover the CLI, rendering and publication packages, and the embedded
+skill. `go test ./...` also runs the browser-focused search URL check when Node.js
+is installed and skips it when Node.js is absent. Do not treat these checks as
+evidence of a deployed site.
 
-## Contribution workflow
+## Documentation and site changes
 
-Reproduce the problem, agree on public behavior, implement the smallest complete
-change, update documentation and run affected checks. Keep proposed behavior
-separate from implemented behavior. Explain the remaining limitations.
+Write user instructions in tutorials, guides, recipes and reference pages.
+Keep development setup here and site-maintenance details in [site maintenance](site.md).
+The Nanosite skill source is `.agents/skills/nanosite/`; the build embeds that
+directory into the CLI. Keep its configuration reference aligned with the
+standard CLI and distinguish it from extension-driver behavior.
 
-Follow the [commit message conventions](commit-message.md). Add release,
-compatibility, generated-output and security-reporting procedures when the
-project has them; do not invent a support policy in a template.
+For Markdown, config, or theme changes, validate and rebuild the local site:
+
+```sh
+sh site/build.sh -check
+sh site/build.sh
+```
+
+Follow the [commit-message conventions](commit-message.md). Keep local checks,
+CI, site deployment and external link availability as separate evidence.

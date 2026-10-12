@@ -93,6 +93,16 @@ func parsePage(source string, data []byte, c Config, md goldmark.Markdown) (*Pag
 		if h, ok := n.(*ast.Heading); ok {
 			title := string(h.Text(body))
 			id := slug(title)
+			if c.Markdown.HeadingIDs == "github" {
+				d := render.Document{Markdown: md, Source: body}
+				title = d.Text(h)
+				id = render.Slug(title)
+			}
+			if c.Markdown.HeadingIDs == "goldmark" {
+				if value, ok := h.AttributeString("id"); ok {
+					id = string(value.([]byte))
+				}
+			}
 			base := id
 			for i := 1; p.Anchors[id]; i++ {
 				id = fmt.Sprintf("%s-%d", base, i)
@@ -121,12 +131,7 @@ func parsePage(source string, data []byte, c Config, md goldmark.Markdown) (*Pag
 	}
 	p.Section = textValue(m.Section, "")
 	if p.Section == "" {
-		for _, s := range c.Sections {
-			if matches(s.Match, source) {
-				p.Section = s.Title
-				break
-			}
-		}
+		p.Section = matchSection(source, c.Sections)
 	}
 	if p.Section == "" {
 		p.Section = "Other"
@@ -142,7 +147,21 @@ func parsePage(source string, data []byte, c Config, md goldmark.Markdown) (*Pag
 	return p, nil
 }
 
-func markdown() goldmark.Markdown { return render.NewMarkdown(render.Options{AlignAttributes: true}) }
+func markdown() goldmark.Markdown { return markdownWith(MarkdownOptions{}) }
+func markdownWith(o MarkdownOptions) goldmark.Markdown {
+	return render.NewMarkdown(render.Options{RawHTML: o.RawHTML, AlignAttributes: boolValue(o.AlignAttributes, true), AutomaticHeadingIDs: o.HeadingIDs == "goldmark"})
+}
+func matchSection(source string, sections []Section) string {
+	for _, section := range sections {
+		if child := matchSection(source, section.Children); child != "" {
+			return child
+		}
+		if matches(section.Match, source) {
+			return section.Title
+		}
+	}
+	return ""
+}
 
 func renderMarkdown(md goldmark.Markdown, p *Page) (string, error) {
 	var b bytes.Buffer

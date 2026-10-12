@@ -3,44 +3,71 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/ornew/nanosite/render"
 	"io"
 	"os"
 	"path"
 	"reflect"
 	"strings"
+
+	"github.com/ornew/nanosite/render"
 )
 
 // All repository-specific choices live in Config. The generator can be moved
 // without importing the adopted project's implementation or tooling.
 type Config struct {
-	Template    string            `json:"template"`
-	StaticDir   string            `json:"staticDir"`
-	Styles      []string          `json:"styles"`
-	Scripts     []string          `json:"scripts"`
-	Title       string            `json:"title"`
-	Description string            `json:"description"`
-	Lang        string            `json:"lang"`
-	Repository  string            `json:"repository"`
-	Branch      string            `json:"branch"`
-	SiteURL     string            `json:"siteURL"`
-	BasePath    string            `json:"basePath"`
-	Include     []string          `json:"include"`
-	Exclude     []string          `json:"exclude"`
-	Assets      []string          `json:"assets"`
-	Drafts      bool              `json:"drafts"`
-	PrettyURLs  bool              `json:"prettyURLs"`
-	Search      bool              `json:"search"`
-	TOC         bool              `json:"toc"`
-	Sections    []Section         `json:"sections"`
-	Defaults    []Defaults        `json:"defaults"`
-	Redirects   map[string]string `json:"redirects"`
+	RecordIndexes  []RecordIndexConfig `json:"recordIndexes"`
+	Markdown       MarkdownOptions     `json:"markdown"`
+	Pager          string              `json:"pager"`
+	SearchHeadings bool                `json:"searchHeadings"`
+	Template       string              `json:"template"`
+	StaticDir      string              `json:"staticDir"`
+	Styles         []string            `json:"styles"`
+	Scripts        []string            `json:"scripts"`
+	Title          string              `json:"title"`
+	Description    string              `json:"description"`
+	Lang           string              `json:"lang"`
+	Repository     string              `json:"repository"`
+	Branch         string              `json:"branch"`
+	SiteURL        string              `json:"siteURL"`
+	BasePath       string              `json:"basePath"`
+	Include        []string            `json:"include"`
+	Exclude        []string            `json:"exclude"`
+	Assets         []string            `json:"assets"`
+	Drafts         bool                `json:"drafts"`
+	PrettyURLs     bool                `json:"prettyURLs"`
+	Search         bool                `json:"search"`
+	TOC            bool                `json:"toc"`
+	Sections       []Section           `json:"sections"`
+	Defaults       []Defaults          `json:"defaults"`
+	Redirects      map[string]string   `json:"redirects"`
 }
 
 type Section struct {
-	Title     string   `json:"title"`
-	Match     []string `json:"match"`
-	Collapsed bool     `json:"collapsed"`
+	Children  []Section `json:"children"`
+	Index     string    `json:"index"`
+	First     []string  `json:"first"`
+	Title     string    `json:"title"`
+	Match     []string  `json:"match"`
+	Collapsed bool      `json:"collapsed"`
+}
+
+type MarkdownOptions struct {
+	RawHTML         bool   `json:"rawHTML"`
+	Alerts          bool   `json:"alerts"`
+	HeadingLinks    bool   `json:"headingLinks"`
+	HeadingIDs      string `json:"headingIDs"`
+	AlignAttributes *bool  `json:"alignAttributes"`
+}
+
+type RecordIndexConfig struct {
+	Source       string          `json:"source"`
+	Directory    string          `json:"directory"`
+	Title        string          `json:"title"`
+	Introduction string          `json:"introduction"`
+	Columns      []render.Column `json:"columns"`
+	Required     []string        `json:"required"`
+	Template     string          `json:"template"`
+	TemplateText string          `json:"templateText"`
 }
 
 type Defaults struct {
@@ -69,7 +96,7 @@ func defaultConfig() Config {
 	return Config{Title: "Documentation", Lang: "en", Branch: "main", BasePath: "/",
 		Include:    []string{"README.md", "docs/**/*.md", "spec/**/*.md"},
 		Exclude:    []string{"**/TEMPLATE.md", "**/000-template.md"},
-		PrettyURLs: true, Search: true, TOC: true}
+		PrettyURLs: true, Search: true, TOC: true, Pager: "section"}
 }
 
 func readConfig(file string) (Config, error) {
@@ -101,16 +128,68 @@ func readConfig(file string) (Config, error) {
 	if c.BasePath != "/" {
 		c.BasePath += "/"
 	}
-	seen := map[string]bool{}
-	for _, s := range c.Sections {
-		if s.Title == "" || seen[s.Title] {
-			return c, fmt.Errorf("section titles must be nonempty and unique: %q", s.Title)
-		}
-		seen[s.Title] = true
+	if c.Pager != "section" && c.Pager != "group" && c.Pager != "site" && c.Pager != "none" {
+		return c, fmt.Errorf("pager must be section, group, site or none")
 	}
+	if c.Markdown.HeadingIDs != "" && c.Markdown.HeadingIDs != "unicode" && c.Markdown.HeadingIDs != "github" && c.Markdown.HeadingIDs != "goldmark" {
+		return c, fmt.Errorf("markdown.headingIDs must be unicode, github or goldmark")
+	}
+	seen := map[string]bool{}
 	patterns := append(append(append([]string{}, c.Include...), c.Exclude...), c.Assets...)
-	for _, s := range c.Sections {
-		patterns = append(patterns, s.Match...)
+	var validateSections func([]Section) error
+	validateSections = func(sections []Section) error {
+		for _, section := range sections {
+			if section.Title == "" || seen[section.Title] {
+				return fmt.Errorf("section titles must be nonempty and globally unique: %q", section.Title)
+			}
+			seen[section.Title] = true
+			patterns = append(patterns, section.Match...)
+			if section.Index != "" {
+				if err := relativeSource(section.Index); err != nil {
+					return err
+				}
+			}
+			for _, source := range section.First {
+				if err := relativeSource(source); err != nil {
+					return err
+				}
+			}
+			if err := validateSections(section.Children); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if err := validateSections(c.Sections); err != nil {
+		return c, err
+	}
+	indexes := map[string]bool{}
+	for i := range c.RecordIndexes {
+		index := &c.RecordIndexes[i]
+		if err := relativeSource(index.Source); err != nil {
+			return c, err
+		}
+		if path.Ext(index.Source) != ".md" || indexes[index.Source] {
+			return c, fmt.Errorf("record index sources must be unique Markdown paths")
+		}
+		indexes[index.Source] = true
+		if index.Directory == "" {
+			index.Directory = path.Dir(index.Source)
+		}
+		if err := relativeSource(index.Directory); err != nil && index.Directory != "." {
+			return c, err
+		}
+		if index.Title == "" || len(index.Columns) == 0 {
+			return c, fmt.Errorf("record index requires title and columns")
+		}
+		for _, col := range index.Columns {
+			if col.Title == "" || col.Field == "" {
+				return c, fmt.Errorf("record index columns require title and field")
+			}
+		}
+		if index.Template != "" && path.Base(index.Template) != index.Template {
+			return c, fmt.Errorf("record template must be a filename")
+		}
 	}
 	for _, d := range c.Defaults {
 		patterns = append(patterns, d.Match...)
@@ -179,4 +258,11 @@ func matches(patterns []string, name string) bool {
 		}
 	}
 	return false
+}
+
+func relativeSource(source string) error {
+	if source == "" || source == "." || source == ".." || path.Clean(source) != source || strings.HasPrefix(source, "/") || strings.HasPrefix(source, "../") || strings.ContainsAny(source, "\\?#") {
+		return fmt.Errorf("invalid repository-relative source path: %q", source)
+	}
+	return nil
 }

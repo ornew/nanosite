@@ -30,6 +30,7 @@ type Result struct {
 	Out   string
 }
 type NavGroup struct {
+	Children          []NavGroup
 	Title             string
 	Collapsed, Active bool
 	Pages             []*Page
@@ -111,8 +112,9 @@ func build(repo, out string, c Config, check bool) (*Result, error) {
 	if err := validateOutput(repo, out); err != nil {
 		return nil, err
 	}
-	md := markdown()
+	md := markdownWith(c.Markdown)
 	var pages []*Page
+	selectedSources := map[string]bool{}
 	assets := map[string]string{}
 	err = filepath.WalkDir(repo, func(file string, d fs.DirEntry, e error) error {
 		if e != nil {
@@ -151,6 +153,7 @@ func build(repo, out string, c Config, check bool) (*Result, error) {
 			if !strings.EqualFold(path.Ext(rel), ".md") {
 				return fmt.Errorf("include matched non-Markdown input: %s", rel)
 			}
+			selectedSources[rel] = true
 			data, e := os.ReadFile(file)
 			if e != nil {
 				return e
@@ -167,6 +170,10 @@ func build(repo, out string, c Config, check bool) (*Result, error) {
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
+	pages, err = recordPages(repo, c, pages, selectedSources)
 	if err != nil {
 		return nil, err
 	}
@@ -348,7 +355,7 @@ func build(repo, out string, c Config, check bool) (*Result, error) {
 			return nil, err
 		}
 	}
-	layout, err := template.ParseFS(embedded, "layout.html")
+	layout, err := template.New("layout.html").Funcs(template.FuncMap{"subnav": subnav}).ParseFS(embedded, "layout.html")
 	if err != nil {
 		return nil, err
 	}
@@ -364,7 +371,7 @@ func build(repo, out string, c Config, check bool) (*Result, error) {
 		if e != nil {
 			return nil, e
 		}
-		layout, err = template.New("layout.html").Parse(string(data))
+		layout, err = template.New("layout.html").Funcs(template.FuncMap{"subnav": subnav}).Parse(string(data))
 		if err != nil {
 			return nil, err
 		}
@@ -387,7 +394,11 @@ func build(repo, out string, c Config, check bool) (*Result, error) {
 		if e != nil {
 			return nil, e
 		}
-		groups := navigation(pages, p, c)
+		body = render.PostProcess(body, c.Markdown.Alerts, c.Markdown.HeadingLinks)
+		groups, e := orderedNavigation(repo, pages, p, c)
+		if e != nil {
+			return nil, e
+		}
 		v := View{Config: c, Page: p, Body: template.HTML(body), Groups: groups, Home: encodePath(relative(p.Output, home)),
 			CSS: encodePath(relative(p.Output, "assets/site.css")), Script: encodePath(relative(p.Output, "assets/site.js")), Theme: encodePath(relative(p.Output, "assets/theme.js"))}
 		v.NoIndex = boolValue(p.Meta.Draft, false)
@@ -418,12 +429,7 @@ func build(repo, out string, c Config, check bool) (*Result, error) {
 			}
 			v.Canonical = strings.TrimSuffix(c.SiteURL, "/") + publicURL(c, p.Output)
 		}
-		for _, g := range groups {
-			previous, next := render.Adjacent(g.Pages, p, nil)
-			if previous != nil || next != nil {
-				v.Previous, v.Next = previous, next
-			}
-		}
+		v.Previous, v.Next = pageNeighbors(groups, p, c.Pager)
 
 		var b strings.Builder
 		if err := layout.ExecuteTemplate(&b, "layout.html", v); err != nil {
@@ -431,7 +437,15 @@ func build(repo, out string, c Config, check bool) (*Result, error) {
 		}
 		generated[p.Output] = []byte(b.String())
 		if c.Search && boolValue(p.Meta.Search, true) {
-			search = append(search, map[string]string{"title": p.Title, "url": p.Output, "text": plainText(p)})
+			search = append(search, map[string]string{"title": p.Title, "url": encodePath(p.Output), "text": plainText(p)})
+			if c.SearchHeadings {
+				for _, h := range p.Headings {
+					if h.Level == 1 {
+						continue
+					}
+					search = append(search, map[string]string{"title": p.Title + " › " + h.Title, "url": encodePath(p.Output) + (&url.URL{Fragment: h.ID}).String(), "text": h.Title})
+				}
+			}
 		}
 	}
 	if c.Search {
@@ -646,4 +660,8 @@ func localInput(repo, name string) (string, error) {
 		return "", fmt.Errorf("configured input must not traverse symlinks: %s", name)
 	}
 	return file, nil
+}
+
+func subnav(groups []NavGroup, p *Page, url func(string) string) View {
+	return View{Groups: groups, Page: p, URL: url}
 }

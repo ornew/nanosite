@@ -13,7 +13,10 @@ import (
 	"github.com/yuin/goldmark/ast"
 )
 
-type Column struct{ Title, Field string }
+type Column struct {
+	Title string `json:"title"`
+	Field string `json:"field"`
+}
 type Record struct {
 	Title, URL string
 	Fields     map[string]string
@@ -25,6 +28,7 @@ type RecordIndex struct {
 	Template                         string
 	TemplateText                     string
 	GeneratedNotice                  string
+	Select                           func(string) bool // optional repository-relative record selection
 }
 
 var recordName = regexp.MustCompile(`^([0-9]{3})-.+\.md$`)
@@ -57,6 +61,9 @@ func ReadRecords(repo string, c RecordIndex) ([]Record, bool, error) {
 			continue
 		}
 		name := entry.Name()
+		if c.Select != nil && !c.Select(filepath.ToSlash(filepath.Join(c.Directory, name))) {
+			continue
+		}
 		if name == c.Template {
 			hasTemplate = true
 		}
@@ -127,6 +134,11 @@ func RecordIndexMarkdown(repo string, c RecordIndex) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	return FormatRecordIndex(records, hasTemplate, c), nil
+}
+
+// FormatRecordIndex renders already-selected records without reading source files.
+func FormatRecordIndex(records []Record, hasTemplate bool, c RecordIndex) []byte {
 	var b strings.Builder
 	if c.GeneratedNotice != "" {
 		fmt.Fprintf(&b, "<!-- %s -->\n\n", c.GeneratedNotice)
@@ -134,7 +146,7 @@ func RecordIndexMarkdown(repo string, c RecordIndex) ([]byte, error) {
 	fmt.Fprintf(&b, "# %s\n\n%s\n\n", c.Heading, c.Introduction)
 	b.WriteByte('|')
 	for _, col := range c.Columns {
-		fmt.Fprintf(&b, " %s |", col.Title)
+		fmt.Fprintf(&b, " %s |", TableText(col.Title))
 	}
 	b.WriteByte('\n')
 	b.WriteByte('|')
@@ -156,7 +168,7 @@ func RecordIndexMarkdown(repo string, c RecordIndex) ([]byte, error) {
 	if hasTemplate && c.TemplateText != "" {
 		fmt.Fprintf(&b, "\n%s\n", c.TemplateText)
 	}
-	return []byte(b.String()), nil
+	return []byte(b.String())
 }
 
 func TableText(s string) string {

@@ -60,6 +60,13 @@
       "collapsed": false
     },
     {
+      "title": "Reference",
+      "match": [
+        "docs/reference/**"
+      ],
+      "collapsed": false
+    },
+    {
       "title": "Specification",
       "match": [
         "spec/**"

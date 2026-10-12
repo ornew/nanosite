@@ -132,3 +132,11 @@ img { max-width: 100%; height: auto; }
   a { color: inherit; }
   pre { white-space: pre-wrap; }
 }
+
+/* Optional standard Markdown features share the active theme palette. */
+.callout { border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; background: var(--surface); }
+.callout-title { font-weight: 700; color: var(--fg); }
+.callout-warning,.callout-caution { border-left-color: #b7791f; }
+.anchor { margin-right: .35em; opacity: .5; text-decoration: none; }
+.anchor:hover { opacity: 1; }
+.nav-group .nav-group { margin: 10px 0 10px 8px; padding-left: 8px; border-left: 1px solid var(--line); }

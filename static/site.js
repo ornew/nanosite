@@ -1,5 +1,6 @@
 (() => {
   const theme = document.querySelector('#theme');
+  if (theme) {
   const choices = ['system', 'light', 'dark'];
   let choice = document.documentElement.dataset.theme || 'system';
   const update = () => { theme.textContent = `Theme: ${choice}`; };
@@ -11,16 +12,20 @@
     try { localStorage.setItem('nanosite-theme', choice); } catch {}
     update();
   });
+  }
   const navigation = document.querySelector('#navigation');
+  if (navigation) {
   const narrow = matchMedia('(max-width: 760px)');
   const collapse = () => { navigation.open = !narrow.matches; };
   collapse(); narrow.addEventListener('change', collapse);
+  }
   const input = document.querySelector('#search');
   const results = document.querySelector('#search-results');
-  if (!input) return;
+  if (!input || !results) return;
   // The index script resolves against the current page on every deployment prefix,
   // and also when opening generated HTML through file://.
   const indexScript = [...document.scripts].find(s => s.src.endsWith('/assets/search-index.js'));
+  if (!indexScript) return;
   const root = new URL('../', indexScript.src);
   input.addEventListener('input', () => {
     const terms = input.value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
@@ -32,7 +37,7 @@
     const list = document.createElement('ul');
     for (const hit of hits.slice(0, 20)) {
       const li = document.createElement('li'); const a = document.createElement('a');
-      a.href = new URL(hit.url.split('/').map(encodeURIComponent).join('/'), root).href; a.textContent = hit.title;
+      a.href = new URL(`./${hit.url}`, root).href; a.textContent = hit.title;
       const summary = document.createElement('p'); summary.textContent = hit.text.slice(0, 180);
       li.append(a, summary); list.append(li);
     }
