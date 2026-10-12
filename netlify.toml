@@ -5,11 +5,21 @@
 [build.environment]
   GO_VERSION = "1.27.1"
 
+[[redirects]]
+  from = "https://nanosite-go.netlify.app/*"
+  to = "https://nanosite.ornew.net/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "http://nanosite-go.netlify.app/*"
+  to = "https://nanosite.ornew.net/:splat"
+  status = 301
+  force = true
+
 [[headers]]
   for = "/*"
   [headers.values]
     Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-
-# Configure custom domains and actual legacy redirects when adopting the template.
